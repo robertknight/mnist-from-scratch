@@ -54,7 +54,8 @@ class Softmax:
         # Reduce values to avoid overflow.
         # See https://stats.stackexchange.com/a/304774
         s = x - np.max(x)
-        return np.exp(s) / np.sum(np.exp(s))
+        exp_s = np.exp(s)
+        return exp_s / np.sum(exp_s)
 
     def gradient(self, x):
         # Calculate partial derivatives of each input wrt. corresponding
@@ -63,10 +64,11 @@ class Softmax:
         # Each gradient is `(k * e^xi) / (e^xi + k)^2` where `xi` is an
         # entry in `x` and `k` is `sum(e^x) - e^xi`.
         result = np.zeros(len(x))
+        exp_x = np.exp(x)
+        exp_sum = np.sum(exp_x)
         for i in range(0, len(x)):
-            exp_x = np.exp(x[i])
-            k = np.sum(np.exp(x)) - exp_x
-            result[i] = (k * exp_x) / ((exp_x + k)**2)
+            k = exp_sum - exp_x[i]
+            result[i] = (k * exp_x[i]) / ((exp_x[i] + k)**2)
         return result
 
 
