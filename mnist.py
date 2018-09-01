@@ -63,13 +63,10 @@ class Softmax:
         #
         # Each gradient is `(k * e^xi) / (e^xi + k)^2` where `xi` is an
         # entry in `x` and `k` is `sum(e^x) - e^xi`.
-        result = np.zeros(len(x))
         exp_x = np.exp(x)
         exp_sum = np.sum(exp_x)
-        for i in range(0, len(x)):
-            k = exp_sum - exp_x[i]
-            result[i] = (k * exp_x[i]) / ((exp_x[i] + k)**2)
-        return result
+        k = exp_sum - exp_x
+        return (k * exp_x) / ((exp_x + k) ** 2)
 
 
 class Layer:
