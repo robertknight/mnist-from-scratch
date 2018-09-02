@@ -5,6 +5,7 @@ import pytest
 from mnist import (
     CategoricalCrossentropy,
     Layer,
+    Model,
     Relu,
     Softmax,
     onehot,
@@ -82,3 +83,27 @@ class TestLayer:
             layer.weights = layer.weights - weight_grad * 0.01
 
         assert_almost_equal(output, 0.)
+
+
+class TestModel:
+    def test_it_learns_xor(self):
+        data = [([0., 0.], 0),
+                ([0., 1.], 1),
+                ([1., 0.], 1),
+                ([1., 1.], 0),
+                ]
+        train_data, train_labels = zip(*data)
+        repeats = 1000
+        train_data = [np.array(d) for d in train_data * repeats]
+        train_labels = train_labels * repeats
+
+        model = Model()
+        model.add_layer(Layer(2, name='relu', activation=Relu(), input_size=2))
+        model.add_layer(Layer(2, name='output', activation=Relu()))
+
+        model.fit(train_data, train_labels, batch_size=2, epochs=10, learning_rate=0.02,
+                  loss_op=CategoricalCrossentropy())
+
+        accuracy = model.evaluate(train_data, train_labels)
+
+        assert accuracy == 1.0
