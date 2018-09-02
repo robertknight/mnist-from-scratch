@@ -181,6 +181,12 @@ class Model:
 
         return total_errors
 
+    def predict(self, features):
+        output = features
+        for layer in self.layers:
+            output = layer.forwards(output)
+        return np.argmax(output)
+
     def evaluate(self, data, target_labels):
         """
         Evaluate model on test data.
@@ -189,10 +195,7 @@ class Model:
         """
         errors = 0
         for i, features in enumerate(data):
-            output = features
-            for layer in self.layers:
-                output = layer.forwards(output)
-            predicted_class = np.argmax(output)
+            predicted_class = self.predict(features)
             actual_class = target_labels[i]
             if predicted_class != actual_class:
                 errors += 1
