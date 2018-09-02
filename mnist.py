@@ -85,7 +85,7 @@ class Layer:
 
     def init_weights(self):
         assert self.input_size is not None
-        self.weights = np.random.random_sample((self.unit_count, self.input_size))
+        self.weights = np.random.uniform(-0.2, 0.2, (self.unit_count, self.input_size))
 
     def forwards(self, inputs):
         z = np.dot(self.weights, inputs)
