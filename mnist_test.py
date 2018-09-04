@@ -51,7 +51,7 @@ class TestSoftmax:
             dx[i] = 0.1
             xp = x + dx
             yp = softmax(xp)
-            assert_almost_equal(yp[i], y[i] + (g[i] * dx[i]), 3)
+            assert_almost_equal(yp[i], y[i] + (g[i][i] * dx[i]), 3)
 
 
 class TestLayer:

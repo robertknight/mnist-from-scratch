@@ -44,7 +44,7 @@ class Relu:
         return np.maximum(0., x)
 
     def gradient(self, x):
-        return np.where(x >= 0., 1., 0.)
+        return np.diag(np.where(x >= 0., 1., 0.))
 
 
 class Softmax:
@@ -58,15 +58,18 @@ class Softmax:
         return exp_s / np.sum(exp_s)
 
     def gradient(self, x):
-        # Calculate partial derivatives of each input wrt. corresponding
-        # output. These are the diagonal entries of the softmax jacobian.
-        #
-        # Each gradient is `(k * e^xi) / (e^xi + k)^2` where `xi` is an
-        # entry in `x` and `k` is `sum(e^x) - e^xi`.
-        exp_x = np.exp(x)
-        exp_sum = np.sum(exp_x)
-        k = exp_sum - exp_x
-        return (k * exp_x) / ((exp_x + k) ** 2)
+        # See https://eli.thegreenplace.net/2016/the-softmax-function-and-its-derivative/
+        # and https://eli.thegreenplace.net/2016/the-chain-rule-of-calculus/.
+        s = self(x)
+
+        out = np.zeros((len(x), len(x)))
+        for i in range(0, len(x)):
+            for j in range(0, len(x)):
+                if i == j:
+                    out[i][j] = s[i] * (1 - s[j])
+                else:
+                    out[i][j] = -s[j] * s[i]
+        return out
 
 
 class Layer:
@@ -97,13 +100,11 @@ class Layer:
         :param loss_grad: Gradient of loss wrt. each of this layer's outputs
         :return: 2-tuple of gradient of inputs and weights wrt. loss.
         """
-        activation_grad = self.activation.gradient(loss_grad)
-        weight_grad = np.matmul(activation_grad.reshape((self.unit_count, 1)),
+        z = np.dot(self.weights, inputs)
+        z_grad = np.matmul(self.activation.gradient(z), loss_grad)
+        weight_grad = np.matmul(z_grad.reshape((self.unit_count, 1)),
                                 inputs.reshape((1, self.input_size)))
-
-        # Calculate grad of loss wrt. input for back-propagation.
-        input_grad = np.matmul(np.transpose(self.weights), activation_grad.reshape((self.unit_count, 1)))
-        input_grad = np.reshape(input_grad, (self.input_size,))
+        input_grad = np.matmul(np.transpose(self.weights), z_grad)
 
         return (input_grad, weight_grad)
 
