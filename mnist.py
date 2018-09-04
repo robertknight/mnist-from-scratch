@@ -222,16 +222,17 @@ def train_and_test():
     test_labels = load_mnist_labels('data/t10k-labels.idx1-ubyte')
 
     model = Model()
+    model.add_layer(Layer(32, name='relu', activation=Relu(), input_size=28 * 28))
     model.add_layer(Layer(10, name='softmax', activation=Softmax(), input_size=28 * 28))
 
     print('training model...')
     model.fit(train_images, train_labels,
-              batch_size=32, epochs=5, learning_rate=0.02,
+              batch_size=32, epochs=10, learning_rate=0.02,
               loss_op=CategoricalCrossentropy())
 
     print('evaluating model...')
     accuracy = model.evaluate(test_images, test_labels)
-    print('accuracy {}'.format(accuracy))
+    print('accuracy {:3f}'.format(accuracy))
 
 
 if __name__ == '__main__':
