@@ -9,7 +9,7 @@ import time
 from loader import load_mnist_images, load_mnist_labels
 
 """
-Just-above-zero value used to avoid using zero in places where that would be undefined.
+Just-above-zero value used to avoid zero in places where that would cause undefined results.
 """
 EPSILON = 1e-7
 
