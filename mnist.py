@@ -101,15 +101,17 @@ class Layer:
         self.activation = activation
         self.unit_count = unit_count
         self.weights = None
+        self.biases = None
         self.input_size = input_size
         self.name = name
 
     def init_weights(self):
         assert self.input_size is not None
         self.weights = np.random.uniform(-0.2, 0.2, (self.unit_count, self.input_size))
+        self.biases = np.zeros(self.unit_count)
 
     def forwards(self, inputs):
-        z = np.dot(self.weights, inputs)
+        z = np.dot(self.weights, inputs) + self.biases
         return self.activation(z)
 
     def backwards(self, inputs, loss_grad, compute_input_grad=True):
@@ -120,8 +122,9 @@ class Layer:
         :param loss_grad: Gradient of loss wrt. each of this layer's outputs
         :return: 2-tuple of gradient of inputs and weights wrt. loss.
         """
-        z = np.dot(self.weights, inputs)
+        z = np.dot(self.weights, inputs) + self.biases
         z_grad = np.matmul(self.activation.gradient(z), loss_grad)
+        bias_grad = z_grad
         weight_grad = np.matmul(z_grad.reshape((self.unit_count, 1)),
                                 inputs.reshape((1, self.input_size)))
 
@@ -130,7 +133,7 @@ class Layer:
         else:
             input_grad = None
 
-        return (input_grad, weight_grad)
+        return (input_grad, weight_grad, bias_grad)
 
 
 class Model:
@@ -184,9 +187,11 @@ class Model:
     def _fit_batch(self, batch, max_label, loss_op, learning_rate):
         # Compute sum of cost gradients across all examples in batch.
         sum_weight_grads = {}
+        sum_bias_grads = {}
 
         for layer in self.layers:
             sum_weight_grads[layer] = np.zeros(layer.weights.shape)
+            sum_bias_grads[layer] = np.zeros(layer.biases.shape)
 
         total_errors = 0
 
@@ -207,14 +212,19 @@ class Model:
             for layer in reversed(self.layers):
                 inputs = layer_inputs[layer]
                 compute_input_grad = layer != self.layers[0]
-                input_grad, weight_grad = layer.backwards(inputs, input_grad,
-                                                          compute_input_grad=compute_input_grad)
+                input_grad, weight_grad, bias_grad = layer.backwards(inputs, input_grad,
+                                                                     compute_input_grad=compute_input_grad)
 
                 sum_weight_grads[layer] += weight_grad
+                sum_bias_grads[layer] += bias_grad
 
         for layer, sum_weight_grad in sum_weight_grads.items():
             mean_grad = sum_weight_grad / len(batch)
             layer.weights = layer.weights - learning_rate * mean_grad
+
+        for layer, sum_bias_grad in sum_bias_grads.items():
+            mean_grad = sum_bias_grad / len(batch)
+            layer.biases = layer.biases - learning_rate * mean_grad
 
         return total_errors
 
