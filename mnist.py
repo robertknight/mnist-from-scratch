@@ -106,8 +106,10 @@ class Layer:
         z = np.dot(self.weights, inputs)
         return self.activation(z)
 
-    def backwards(self, inputs, loss_grad):
+    def backwards(self, inputs, loss_grad, compute_input_grad=True):
         """
+        Compute the gradients with respect to the loss against a training example.
+
         :param inputs: The inputs to this layer corresponding to `loss_grad`.
         :param loss_grad: Gradient of loss wrt. each of this layer's outputs
         :return: 2-tuple of gradient of inputs and weights wrt. loss.
@@ -116,7 +118,11 @@ class Layer:
         z_grad = np.matmul(self.activation.gradient(z), loss_grad)
         weight_grad = np.matmul(z_grad.reshape((self.unit_count, 1)),
                                 inputs.reshape((1, self.input_size)))
-        input_grad = np.matmul(np.transpose(self.weights), z_grad)
+
+        if compute_input_grad:
+            input_grad = np.matmul(np.transpose(self.weights), z_grad)
+        else:
+            input_grad = None
 
         return (input_grad, weight_grad)
 
@@ -194,7 +200,9 @@ class Model:
             input_grad = loss_op.gradient(target, output)
             for layer in reversed(self.layers):
                 inputs = layer_inputs[layer]
-                input_grad, weight_grad = layer.backwards(inputs, input_grad)
+                compute_input_grad = layer != self.layers[0]
+                input_grad, weight_grad = layer.backwards(inputs, input_grad,
+                                                          compute_input_grad=compute_input_grad)
 
                 sum_weight_grads[layer] += weight_grad
 
