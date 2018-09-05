@@ -1,3 +1,9 @@
+"""
+Incomplete tests for a few parts of the neural net.
+
+These were added for debugging purposes and are clearly not comprehensive.
+"""
+
 import numpy as np
 from numpy.testing import assert_array_equal, assert_almost_equal
 import pytest
