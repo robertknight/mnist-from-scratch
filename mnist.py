@@ -4,6 +4,7 @@ MNIST handwritten digit classifier neural net.
 
 import random
 import numpy as np
+import time
 
 from loader import load_mnist_images, load_mnist_labels
 
@@ -60,16 +61,30 @@ class Softmax:
     def gradient(self, x):
         # See https://eli.thegreenplace.net/2016/the-softmax-function-and-its-derivative/
         # and https://eli.thegreenplace.net/2016/the-chain-rule-of-calculus/.
-        s = self(x)
 
-        out = np.zeros((len(x), len(x)))
-        for i in range(0, len(x)):
-            for j in range(0, len(x)):
-                if i == j:
-                    out[i][j] = s[i] * (1 - s[j])
-                else:
-                    out[i][j] = -s[j] * s[i]
+        s_row = self(x)
+        s_col = s_row.reshape((len(x), 1))
+
+        out = -s_col * s_row
+        out_diag = s_row * (1 - s_col)
+        np.copyto(out, out_diag, where=np.eye(len(x), dtype='bool'))
         return out
+
+
+class ProgressReporter:
+    def report_training_progress(self, epoch, total_examples, examples_processed,
+                                 epoch_start_time, epoch_total_errors, is_last_batch):
+        now = time.time()
+        time_per_example = (now - epoch_start_time) / examples_processed
+        time_per_example_us = time_per_example * 1000_000
+        accuracy = 1 - (epoch_total_errors / examples_processed)
+        print('\r', end='')
+        print(f'epoch {epoch} ({examples_processed} / {total_examples})  '
+              f'{time_per_example_us:.2f}us/example',
+              f'  accuracy {accuracy:.3f}',
+              end='')
+        if is_last_batch:
+            print('\n', end='')
 
 
 class Layer:
@@ -114,8 +129,9 @@ class Model:
     Simple neural network model consisting of a stack of layers.
     """
 
-    def __init__(self):
+    def __init__(self, progress_reporter=ProgressReporter()):
         self.layers = []
+        self.progress_reporter = progress_reporter
 
     def add_layer(self, layer):
         if len(self.layers) > 0:
@@ -126,6 +142,7 @@ class Model:
         """Learn parameters given input training `data` and target `labels`."""
 
         data, labels = shuffle_examples(data, labels)
+        reporter = self.progress_reporter
 
         # Reset model.
         for layer in self.layers:
@@ -137,15 +154,22 @@ class Model:
         for offset in range(0, len(data), batch_size):
             batches.append((data[offset:offset + batch_size], labels[offset:offset + batch_size]))
 
+        # Train model.
         for epoch in range(0, epochs):
             epoch_errors = 0
+            epoch_start_time = time.time()
             for batch_index, (batch_data, batch_labels) in enumerate(batches):
                 shuffled_batch = list(zip(batch_data, batch_labels))
                 np.random.shuffle(shuffled_batch)
                 batch_errors = self._fit_batch(shuffled_batch, max_label, loss_op, learning_rate)
                 epoch_errors += batch_errors
-            epoch_accuracy = 1 - epoch_errors / len(data)
-            print(f'epoch {epoch} training accuracy {epoch_accuracy:.3f}...')
+
+                reporter.report_training_progress(epoch=epoch,
+                                                  total_examples=len(data),
+                                                  examples_processed=(batch_index + 1) * batch_size,
+                                                  epoch_start_time=epoch_start_time,
+                                                  epoch_total_errors=epoch_errors,
+                                                  is_last_batch=batch_index == len(batches) - 1)
 
     def _fit_batch(self, batch, max_label, loss_op, learning_rate):
         # Compute sum of cost gradients across all examples in batch.
