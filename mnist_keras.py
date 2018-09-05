@@ -30,8 +30,9 @@ if __name__ == '__main__':
     # "from scratch" implementation.
     print('building model...')
     model = Sequential()
-    model.add(Dense(10, activation='softmax', input_shape=(28 * 28,), use_bias=False, kernel_initializer='random_uniform'))
-    model.compile(optimizer=SGD(lr=0.01),
+    model.add(Dense(32, activation='relu', input_shape=(28 * 28,), use_bias=False, kernel_initializer='random_uniform'))
+    model.add(Dense(10, activation='softmax', use_bias=False, kernel_initializer='random_uniform'))
+    model.compile(optimizer=SGD(lr=0.02),
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
 
