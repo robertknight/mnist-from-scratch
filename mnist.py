@@ -151,7 +151,9 @@ class Model:
             else:
                 layers[i].input_size = layers[i - 1].unit_count
 
-    def fit(self, data, labels, batch_size, epochs, learning_rate, loss_op):
+    def fit(self, data, labels, batch_size, epochs, learning_rate, loss_op,
+            learning_rate_decay=0.):
+
         """Learn parameters given input training `data` and target `labels`."""
 
         data, labels = shuffle_examples(data, labels)
@@ -183,6 +185,7 @@ class Model:
                                                   epoch_start_time=epoch_start_time,
                                                   epoch_total_errors=epoch_errors,
                                                   is_last_batch=batch_index == len(batches) - 1)
+            learning_rate *= (1 - learning_rate_decay)
 
     def _fit_batch(self, batch, max_label, loss_op, learning_rate):
         # Compute sum of cost gradients across all examples in batch.
@@ -279,7 +282,8 @@ def train_and_test():
 
     print('training model...')
     model.fit(train_images, train_labels,
-              batch_size=32, epochs=10, learning_rate=0.02,
+              batch_size=32, epochs=10, learning_rate=0.1,
+              learning_rate_decay=0.1,
               loss_op=CategoricalCrossentropy())
 
     print('evaluating model...')

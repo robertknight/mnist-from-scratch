@@ -32,6 +32,9 @@ if __name__ == '__main__':
     model = Sequential()
     model.add(Dense(32, activation='relu', input_shape=(28 * 28,), kernel_initializer='random_uniform'))
     model.add(Dense(10, activation='softmax', kernel_initializer='random_uniform'))
+
+    # Note: The learning rate and decay values that produce optimal results are
+    # different between Keras and mnist.py. Finding out why is TBD.
     model.compile(optimizer=SGD(lr=0.02),
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
