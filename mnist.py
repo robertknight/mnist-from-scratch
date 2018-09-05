@@ -54,20 +54,26 @@ class Softmax:
     def __call__(self, x):
         # Reduce values to avoid overflow.
         # See https://stats.stackexchange.com/a/304774
-        s = x - np.max(x)
-        exp_s = np.exp(s)
+        shifted_x = x - np.max(x)
+        exp_s = np.exp(shifted_x)
         return exp_s / np.sum(exp_s)
 
     def gradient(self, x):
         # See https://eli.thegreenplace.net/2016/the-softmax-function-and-its-derivative/
         # and https://eli.thegreenplace.net/2016/the-chain-rule-of-calculus/.
 
-        s_row = self(x)
-        s_col = s_row.reshape((len(x), 1))
+        softmax_row = self(x)
+        softmax_col = softmax_row.reshape((len(x), 1))
 
-        out = -s_col * s_row
-        out_diag = s_row * (1 - s_col)
+        # Compute non-diagonal entries of the jacobian.
+        out = -softmax_col * softmax_row
+
+        # Compute diagonal entries of the jacobian.
+        out_diag = softmax_row * (1 - softmax_col)
+
+        # Overlay diagonal entries on top of other entries.
         np.copyto(out, out_diag, where=np.eye(len(x), dtype='bool'))
+
         return out
 
 
