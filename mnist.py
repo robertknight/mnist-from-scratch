@@ -98,9 +98,6 @@ class Layer:
         self.input_size = input_size
         self.name = name
 
-    def connect(self, prev_layer):
-        self.input_size = prev_layer.unit_count
-
     def init_weights(self):
         assert self.input_size is not None
         self.weights = np.random.uniform(-0.2, 0.2, (self.unit_count, self.input_size))
@@ -129,14 +126,15 @@ class Model:
     Simple neural network model consisting of a stack of layers.
     """
 
-    def __init__(self, progress_reporter=ProgressReporter()):
-        self.layers = []
+    def __init__(self, layers, input_size, progress_reporter=ProgressReporter()):
+        self.layers = layers
         self.progress_reporter = progress_reporter
 
-    def add_layer(self, layer):
-        if len(self.layers) > 0:
-            layer.connect(self.layers[-1])
-        self.layers.append(layer)
+        for i in range(0, len(layers)):
+            if i == 0:
+                layers[0].input_size = input_size
+            else:
+                layers[i].input_size = layers[i - 1].unit_count
 
     def fit(self, data, labels, batch_size, epochs, learning_rate, loss_op):
         """Learn parameters given input training `data` and target `labels`."""
@@ -207,6 +205,11 @@ class Model:
         return total_errors
 
     def predict(self, features):
+        """
+        Predict the class of an example given a feature vector.
+
+        Returns the predicted class label.
+        """
         output = features
         for layer in self.layers:
             output = layer.forwards(output)
@@ -245,9 +248,10 @@ def train_and_test():
     test_images = test_images.astype('float') / 255.0
     test_labels = load_mnist_labels('data/t10k-labels.idx1-ubyte')
 
-    model = Model()
-    model.add_layer(Layer(32, name='relu', activation=Relu(), input_size=28 * 28))
-    model.add_layer(Layer(10, name='softmax', activation=Softmax(), input_size=28 * 28))
+    model = Model(layers=[
+        Layer(32, name='relu', activation=Relu()),
+        Layer(10, name='softmax', activation=Softmax()),
+    ], input_size=28 * 28)
 
     print('training model...')
     model.fit(train_images, train_labels,
