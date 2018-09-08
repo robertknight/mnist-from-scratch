@@ -16,14 +16,8 @@ def sigmoid_grad(x):
     return exp_mx / (exp_mx + 1)**2
 
 
-def log_loss(x, y):
-    if y:
-        return -np.log(x)
-    else:
-        return -np.log(1 - x)
-
-
 def log_loss_grad(x, y):
+    """Gradient of `-log(x)` (if y is 1) or `-log(1 - x)` (if y is 0"""
     if y:
         return -1. / x
     else:
@@ -82,16 +76,10 @@ def train_and_test():
     print('evaluating...')
     errors = 0
     for example, label in zip(test_images, test_labels):
-        argmax_label = 0
-        argmax_value = 0.
+        scores = [model.predict(example) for model in models]
+        predicted_label = np.argmax(scores)
 
-        for model_label, model in enumerate(models):
-            score = model.predict(example)
-            if score > argmax_value:
-                argmax_label = model_label
-                argmax_value = score
-
-        if argmax_label != label:
+        if predicted_label != label:
             errors += 1
     accuracy = 1. - (errors / len(test_images))
 
