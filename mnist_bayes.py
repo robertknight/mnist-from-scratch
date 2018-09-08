@@ -10,6 +10,7 @@ from loader import load_mnist_images, load_mnist_labels
 
 
 def normal_distribution_pdf(mean, variance, x):
+    """Normal distribution probability density function (from Wikipedia)."""
     exp = -((x - mean)**2. / (2. * variance))
     denominator = np.sqrt(2. * math.pi * variance)
     return (math.e ** exp) / denominator
@@ -58,13 +59,9 @@ class NaiveBayesClassifier:
 
     def evaluate(self, data, labels):
         errors = 0
-        evaluated = 0
-        for (x, label) in zip(data, labels):
-            y_pred = self.predict(x)
-            if y_pred != label:
+        for x, label in zip(data, labels):
+            if self.predict(x) != label:
                 errors += 1
-            evaluated += 1
-
         return 1 - (errors / len(data))
 
 
