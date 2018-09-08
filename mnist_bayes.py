@@ -3,10 +3,11 @@ Naive bayes classifier for MNIST data.
 """
 
 import math
+import sys
 
 import numpy as np
 
-from loader import load_mnist_images, load_mnist_labels
+from loader import load_mnist_dataset
 
 
 def normal_distribution_pdf(mean, variance, x):
@@ -65,18 +66,9 @@ class NaiveBayesClassifier:
         return 1 - (errors / len(data))
 
 
-def train_and_test():
+def train_and_test(dataset_path):
     print('reading training data...')
-    train_images = load_mnist_images('data/train-images.idx3-ubyte')
-    train_images = train_images.reshape((60000, 28 * 28))
-    train_images = train_images.astype('float') / 255.0
-    train_labels = load_mnist_labels('data/train-labels.idx1-ubyte')
-
-    print('reading test data...')
-    test_images = load_mnist_images('data/t10k-images.idx3-ubyte')
-    test_images = test_images.reshape((10000, 28 * 28))
-    test_images = test_images.astype('float') / 255.0
-    test_labels = load_mnist_labels('data/t10k-labels.idx1-ubyte')
+    train_images, train_labels, test_images, test_labels = load_mnist_dataset(dataset_path)
 
     print('training...')
     model = NaiveBayesClassifier(n_classes=10, n_features=28 * 28)
@@ -88,4 +80,5 @@ def train_and_test():
 
 
 if __name__ == '__main__':
-    train_and_test()
+    dataset = sys.argv[1]
+    train_and_test(dataset)

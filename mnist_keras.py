@@ -2,33 +2,25 @@
 Reference MNIST digit classifier using Keras.
 """
 
+import sys
+
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import SGD
 from keras.utils.np_utils import to_categorical
 
-from loader import load_mnist_images, load_mnist_labels
+from loader import load_mnist_dataset
 
 if __name__ == '__main__':
     # Load train and test datasets.
-    # These are in the original form provided by http://yann.lecun.com/exdb/mnist/
     print('reading training data...')
-    train_images = load_mnist_images('data/train-images.idx3-ubyte')
-    train_images = train_images.reshape((60000, 28 * 28))
-    train_images = train_images.astype('float') / 255.0
-    train_labels = load_mnist_labels('data/train-labels.idx1-ubyte')
+    dataset = sys.argv[1]
+    train_images, train_labels, test_images, test_labels = load_mnist_dataset(dataset)
     train_labels = to_categorical(train_labels)
-
-    print('reading test data...')
-    test_images = load_mnist_images('data/t10k-images.idx3-ubyte')
-    test_images = test_images.reshape((10000, 28 * 28))
-    test_images = test_images.astype('float') / 255.0
-    test_labels = load_mnist_labels('data/t10k-labels.idx1-ubyte')
     test_labels = to_categorical(test_labels)
 
     # Setup a very simple model for use as a reference when building the
     # "from scratch" implementation.
-    print('building model...')
     model = Sequential()
     model.add(Dense(32, activation='relu', input_shape=(28 * 28,), kernel_initializer='random_uniform'))
     model.add(Dense(10, activation='softmax', kernel_initializer='random_uniform'))

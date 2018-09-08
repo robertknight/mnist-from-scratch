@@ -3,8 +3,9 @@ Logistic regression classifier for MNIST.
 """
 
 import numpy as np
+import sys
 
-from loader import load_mnist_images, load_mnist_labels
+from loader import load_mnist_dataset
 
 
 def sigmoid(x):
@@ -52,18 +53,9 @@ class LogisticRegressionClassifier:
         return sigmoid(z)
 
 
-def train_and_test():
+def train_and_test(dataset_path):
     print('reading training data...')
-    train_images = load_mnist_images('data/train-images.idx3-ubyte')
-    train_images = train_images.reshape((60000, 28 * 28))
-    train_images = train_images.astype('float') / 255.0
-    train_labels = load_mnist_labels('data/train-labels.idx1-ubyte')
-
-    print('reading test data...')
-    test_images = load_mnist_images('data/t10k-images.idx3-ubyte')
-    test_images = test_images.reshape((10000, 28 * 28))
-    test_images = test_images.astype('float') / 255.0
-    test_labels = load_mnist_labels('data/t10k-labels.idx1-ubyte')
+    train_images, train_labels, test_images, test_labels = load_mnist_dataset(dataset_path)
 
     print('training...')
     models = []
@@ -87,4 +79,5 @@ def train_and_test():
 
 
 if __name__ == '__main__':
-    train_and_test()
+    dataset = sys.argv[1]
+    train_and_test(dataset)

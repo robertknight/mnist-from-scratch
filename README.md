@@ -6,7 +6,8 @@ learning algorithms as a learning exercise. Implementations are "from scatch" us
 Minimal effort has been put into parameter tuning. I wanted to find out how
 what the "out of the box" performance was like for each algorithm.
 
-The training/test data is the standard MNIST dataset from http://yann.lecun.com/exdb/mnist/
+The training/test datasets are the [classic MNIST dataset](http://yann.lecun.com/exdb/mnist/) and
+the more recent, and harder, [fashion MNIST](https://github.com/zalandoresearch/fashion-mnist).
 
 There is also a reference implementation using [Keras](https://keras.io) as a sanity check.
 
@@ -14,15 +15,21 @@ There is also a reference implementation using [Keras](https://keras.io) as a sa
 
 nb. The instructions below assume that "python" is Python >= 3.6.
 
-```
+```sh
+# Install dependencies.
 pip install numpy
-python mnist_{algorithm}.py
+
+# Fetch datasets.
+./download-data.sh
+
+# Run classifiers.
+python mnist_{algorithm}.py data/{classic, fashion}
 ```
 
 ## Variants
 
-File | Description | Test accuracy
---- | --- | ---
-`mnist_nn.py` | 2-layer neural network using ReLU and softmax layers. | ~0.97
-`mnist_logistic_regression.py` | Binary logistic regression using 1-vs-n to handle multi-class classification. | ~0.90
-`mnist_bayes.py` | Multi-class naive bayes. | ~0.83
+File | Description | Test accuracy (classic MNIST) | Test accuracy (fashion MNIST)
+--- | --- | --- | ---
+`mnist_nn.py` | 2-layer neural network using ReLU and softmax layers. | ~0.97 | ~0.86
+`mnist_logistic_regression.py` | Binary logistic regression using 1-vs-n to handle multi-class classification. | ~0.90 | ~0.82
+`mnist_bayes.py` | Multi-class naive bayes. | ~0.83 | ~0.68

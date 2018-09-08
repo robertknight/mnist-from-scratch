@@ -44,3 +44,24 @@ def load_mnist_labels(path):
         count = read_be32(f)
         labels = np.ndarray((count), dtype='uint8', buffer=f.read())
         return labels
+
+
+def load_mnist_dataset(path):
+    """
+    Load an MNIST-format dataset from the given directory.
+
+    The dataset is expected to be in the format described at
+    http://yann.lecun.com/exdb/mnist/.
+    """
+    train_images = load_mnist_images(f'{path}/train-images-idx3-ubyte')
+    train_images = train_images.reshape((60000, 28 * 28))
+    train_images = train_images.astype('float') / 255.0
+    train_labels = load_mnist_labels(f'{path}/train-labels-idx1-ubyte')
+
+    print('reading test data...')
+    test_images = load_mnist_images(f'{path}/t10k-images-idx3-ubyte')
+    test_images = test_images.reshape((10000, 28 * 28))
+    test_images = test_images.astype('float') / 255.0
+    test_labels = load_mnist_labels(f'{path}/t10k-labels-idx1-ubyte')
+
+    return (train_images, train_labels, test_images, test_labels)
