@@ -4,7 +4,7 @@ Handwritten digit classifiers implemented using various common machine
 learning algorithms as a learning exercise. Implementations are "from scatch" using just Python + numpy.
 
 Minimal effort has been put into parameter tuning. I wanted to find out how
-what the "out of the box" performance was like for each algorithm.
+well each algorithm performed "out of the box".
 
 The training/test datasets are the [classic MNIST dataset](http://yann.lecun.com/exdb/mnist/) and
 the more recent, and harder, [fashion MNIST](https://github.com/zalandoresearch/fashion-mnist).
