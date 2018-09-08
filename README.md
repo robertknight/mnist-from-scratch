@@ -24,5 +24,5 @@ python mnist_{algorithm}.py
 File | Description | Test accuracy
 --- | --- | ---
 `mnist_nn.py` | 2-layer neural network using ReLU and softmax layers. | ~0.97
-`mnist_logistic_regression.py` | Binary logistic regression using 1-vs-n to handle multi-class classification. | ~0.89
+`mnist_logistic_regression.py` | Binary logistic regression using 1-vs-n to handle multi-class classification. | ~0.90
 `mnist_bayes.py` | Multi-class naive bayes. | ~0.83

@@ -38,7 +38,7 @@ class LogisticRegressionClassifier:
         self.bias = 0.
 
     def fit(self, examples, labels):
-        learning_rate = 0.02
+        learning_rate = 0.005
         self.weights = np.random.uniform(-0.1, 0.1, self.n_features)
         self.bias = 0.
 
