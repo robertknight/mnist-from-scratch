@@ -46,7 +46,7 @@ def load_mnist_labels(path):
         return labels
 
 
-def load_mnist_dataset(path):
+def load_mnist_dataset(path, shape=(28 * 28,)):
     """
     Load an MNIST-format dataset from the given directory.
 
@@ -54,13 +54,13 @@ def load_mnist_dataset(path):
     http://yann.lecun.com/exdb/mnist/.
     """
     train_images = load_mnist_images(f'{path}/train-images-idx3-ubyte')
-    train_images = train_images.reshape((60000, 28 * 28))
+    train_images = train_images.reshape((60000, *shape))
     train_images = train_images.astype('float') / 255.0
     train_labels = load_mnist_labels(f'{path}/train-labels-idx1-ubyte')
 
     print('reading test data...')
     test_images = load_mnist_images(f'{path}/t10k-images-idx3-ubyte')
-    test_images = test_images.reshape((10000, 28 * 28))
+    test_images = test_images.reshape((10000, *shape))
     test_images = test_images.astype('float') / 255.0
     test_labels = load_mnist_labels(f'{path}/t10k-labels-idx1-ubyte')
 
