@@ -40,6 +40,16 @@ class CategoricalCrossentropy:
         return - (targets / predictions)
 
 
+class Linear:
+    """Linear activation."""
+
+    def __call__(self, x):
+        return x
+
+    def gradient(self, x):
+        return np.ones(x.shape)
+
+
 class Relu:
     """Rectified Linear Unit non-linearity for unit activations."""
 
@@ -158,6 +168,52 @@ def conv2d(matrix, filter_):
     # Multiply each window by corresponding filter element, and then sum the
     # corresponding elements of each window.
     return np.einsum('ij,ijkl->kl', filter_, windows)
+
+
+class Conv2DLayer:
+    """
+    A 2D convolution layer.
+    """
+
+    def __init__(self, channels, filter_shape, activation, input_size=None, name=None):
+        self.channels = channels
+        self.filter_shape = filter_shape
+        self.activation = activation
+        self.input_size = input_size
+        self.name = name
+
+    def init_weights(self):
+        assert self.input_size is not None
+
+        self.weights = np.random.uniform(-0.2, 0.2, (self.channels, *self.filter_shape))
+
+    def forwards(self, inputs):
+        channel_outputs = []
+        for channel in range(self.channels):
+            channel_output = conv2d(inputs, self.weights[channel])
+            channel_output = self.activation(channel_output)
+            channel_outputs.append(channel_output)
+        return np.stack(channel_outputs, axis=0)
+
+    def backwards(self, inputs, loss_grad, compute_input_grad=True):
+        filter_w, filter_h = self.filter_shape
+        input_w, input_h = inputs.shape
+
+        input_grad = None  # Not implemented yet.
+        bias_grad = None  # Not implemented yet.
+
+        weight_grad = np.zeros(self.weights.shape)
+        for channel in range(self.channels):
+            channel_output = conv2d(inputs, self.weights[channel])
+            act_grad = np.matmul(self.activation.gradient(channel_output), loss_grad[channel])
+
+            for i in range(input_h - filter_h + 1):
+                for j in range(input_w - filter_w + 1):
+                    input_window = inputs[i:i + filter_h, j:j + filter_w]
+                    window_weight_grad = input_window * act_grad[i][j]
+                    weight_grad[channel] += window_weight_grad
+
+        return (input_grad, weight_grad, bias_grad)
 
 
 class Model:

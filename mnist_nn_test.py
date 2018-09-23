@@ -11,6 +11,8 @@ import pytest
 from mnist_nn import (
     CategoricalCrossentropy,
     Layer,
+    Linear,
+    Conv2DLayer,
     Relu,
     Softmax,
     conv2d,
@@ -108,3 +110,68 @@ class TestConv2d:
                 expected_output[i][j] = np.sum(np.multiply(input_window, filter_))
 
         assert_almost_equal(conv2d(input_, filter_), expected_output)
+
+
+def _minimize_output(layer, input_, steps, learning_rate):
+    """
+    Train weights of a Conv2DLayer to minimize abs sum of output given an input.
+
+    This is designed to test that the weight gradients during backprop push
+    the weights in the right direction.
+
+    Returns the losses after each step.
+    """
+
+    losses = []
+    channels = layer.weights.shape[0]
+
+    for step in range(steps):
+        output = layer.forwards(input_)
+        loss = abs(np.sum(output))
+        losses.append(loss)
+        loss_grad = np.sign(output)
+
+        _, weight_grad, _ = layer.backwards(input_, loss_grad, compute_input_grad=False)
+        assert weight_grad.shape == layer.weights.shape
+
+        for channel in range(channels):
+            layer.weights[channel] -= learning_rate * weight_grad[channel]
+
+        learning_rate = learning_rate * 0.9
+
+    return losses
+
+
+class TestConv2DLayer:
+
+    def test_forwards_returns_correct_output_shape(self):
+        input_size = (28, 28)
+        layer = Conv2DLayer(64, (3, 3), activation=Relu(), input_size=input_size)
+        layer.init_weights()
+        input_ = np.random.random_sample(input_size)
+
+        output = layer.forwards(input_)
+
+        assert output.shape == (64, 26, 26)
+
+    def test_forwards_returns_convolution(self):
+        input_size = (28, 28)
+        layer = Conv2DLayer(64, (3, 3), activation=Linear(), input_size=input_size)
+        layer.init_weights()
+        input_ = np.random.random_sample(input_size)
+
+        output = layer.forwards(input_)
+
+        for channel in range(64):
+            expected_output = conv2d(input_, layer.weights[channel])
+            assert_almost_equal(output[channel], expected_output)
+
+    def test_backwards_returns_weight_grad(self):
+        input_size = (28, 28)
+        layer = Conv2DLayer(64, (3, 3), activation=Linear(), input_size=input_size)
+        layer.init_weights()
+        input_ = np.random.random_sample(input_size)
+
+        losses = _minimize_output(layer, input_, steps=10, learning_rate=0.000_002)
+
+        assert losses[-1] < losses[0]
