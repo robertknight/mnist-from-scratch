@@ -8,7 +8,7 @@ import numpy as np
 from numpy.testing import assert_array_equal, assert_almost_equal
 import pytest
 
-from mnist import (
+from mnist_nn import (
     CategoricalCrossentropy,
     Layer,
     Relu,
@@ -84,7 +84,7 @@ class TestLayer:
 
         for _ in range(0, 100):
             output = layer.forwards(inputs)
-            _, weight_grad = layer.backwards(inputs, dummy_loss(output))
+            _, weight_grad, _ = layer.backwards(inputs, dummy_loss(output))
             layer.weights = layer.weights - weight_grad * 0.01
 
         assert_almost_equal(output, 0.)
