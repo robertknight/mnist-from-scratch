@@ -13,6 +13,7 @@ from mnist_nn import (
     Layer,
     Relu,
     Softmax,
+    conv2d,
     onehot,
 )
 
@@ -88,3 +89,22 @@ class TestLayer:
             layer.weights = layer.weights - weight_grad * 0.01
 
         assert_almost_equal(output, 0.)
+
+
+class TestConv2d:
+    @pytest.mark.parametrize('input_shape,filter_shape', [
+        ((5, 5), (3, 3)),
+        ((10, 10), (3, 3)),
+        ((20, 20), (5, 5)),
+    ])
+    def test_output_matches_explicit_loops(self, input_shape, filter_shape):
+        input_ = np.random.random_sample(input_shape)
+        filter_ = np.random.random_sample(filter_shape)
+
+        expected_output = np.zeros(np.subtract(input_shape, filter_shape) + 1)
+        for i in range(expected_output.shape[0]):
+            for j in range(expected_output.shape[1]):
+                input_window = input_[i:i + filter_.shape[0], j:j + filter_.shape[1]]
+                expected_output[i][j] = np.sum(np.multiply(input_window, filter_))
+
+        assert_almost_equal(conv2d(input_, filter_), expected_output)
