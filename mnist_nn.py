@@ -138,6 +138,28 @@ class Layer:
         return (input_grad, weight_grad, bias_grad)
 
 
+def conv2d(matrix, filter_):
+    """
+    Return a 2D convolution of an input matrix with a filter.
+
+    This implements 2D convolution without requiring nested loops in Python,
+    which would be slow for large input matrices.
+
+    Adapted from https://stackoverflow.com/questions/43086557/.
+    """
+
+    # Create a view on the input matrix which is a `filter_.shape`-sized grid
+    # of 2D windows, where each window contains all the elements that
+    # should be multiplied by a given filter element during convolution.
+    s = filter_.shape + tuple(np.subtract(matrix.shape, filter_.shape) + 1)
+    as_strided = np.lib.stride_tricks.as_strided
+    windows = as_strided(matrix, shape=s, strides=matrix.strides * 2)
+
+    # Multiply each window by corresponding filter element, and then sum the
+    # corresponding elements of each window.
+    return np.einsum('ij,ijkl->kl', filter_, windows)
+
+
 class Model:
     """
     Simple neural network model consisting of a stack of layers.
