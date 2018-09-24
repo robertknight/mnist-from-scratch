@@ -172,6 +172,6 @@ class TestConv2DLayer:
         layer.init_weights()
         input_ = np.random.random_sample(input_size)
 
-        losses = _minimize_output(layer, input_, steps=10, learning_rate=0.000_002)
+        losses = _minimize_output(layer, input_, steps=10, learning_rate=0.001)
 
         assert losses[-1] < losses[0]

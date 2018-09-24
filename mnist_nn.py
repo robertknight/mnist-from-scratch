@@ -202,16 +202,25 @@ class Conv2DLayer:
         input_grad = None  # Not implemented yet.
         bias_grad = None  # Not implemented yet.
 
+        window_rows = input_h - filter_h + 1
+        window_cols = input_w - filter_w + 1
+
         weight_grad = np.zeros(self.weights.shape)
         for channel in range(self.channels):
             channel_output = conv2d(inputs, self.weights[channel])
-            act_grad = np.matmul(self.activation.gradient(channel_output), loss_grad[channel])
+            activation_grad = np.matmul(self.activation.gradient(channel_output),
+                                        loss_grad[channel])
 
-            for i in range(input_h - filter_h + 1):
-                for j in range(input_w - filter_w + 1):
+            for i in range(window_rows):
+                for j in range(window_cols):
                     input_window = inputs[i:i + filter_h, j:j + filter_w]
-                    window_weight_grad = input_window * act_grad[i][j]
+                    window_weight_grad = input_window * activation_grad[i][j]
                     weight_grad[channel] += window_weight_grad
+
+            # Average the gradients across all windows. This is not essential
+            # but otherwise a tiny learning rate will be required because the
+            # gradients will be very large.
+            weight_grad[channel] /= (window_rows * window_cols)
 
         return (input_grad, weight_grad, bias_grad)
 
