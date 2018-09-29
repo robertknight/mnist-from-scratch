@@ -427,12 +427,14 @@ def train_and_test(dataset_path):
 
     # Load train and test datasets.
     print('reading data...')
-    train_images, train_labels, test_images, test_labels = load_mnist_dataset(dataset_path)
+    train_images, train_labels, test_images, test_labels = load_mnist_dataset(dataset_path, (28, 28))
 
     model = Model(layers=[
+        Conv2DLayer(32, (3, 3), activation=Relu()),
+        FlattenLayer(),
         Layer(32, name='relu', activation=Relu()),
         Layer(10, name='softmax', activation=Softmax()),
-    ], input_size=28 * 28)
+    ], input_size=(28, 28))
 
     print('training model...')
     model.fit(train_images, train_labels,
