@@ -10,6 +10,7 @@ import pytest
 
 from mnist_nn import (
     CategoricalCrossentropy,
+    FlattenLayer,
     Layer,
     Linear,
     Conv2DLayer,
@@ -203,3 +204,24 @@ class TestConv2DLayer:
                                   train_weights=False)
 
         assert losses[-1] < losses[0]
+
+
+class TestFlattenLayer:
+    def test_output_size_is_correct(self):
+        layer = FlattenLayer(input_size=(26, 26, 3))
+        assert layer.output_size == (26 * 26 * 3,)
+
+    def test_forwards_returns_flat_output(self):
+        input_size = (26, 26, 3)
+        layer = FlattenLayer(input_size=input_size)
+        input_ = np.random.random_sample(input_size)
+
+        assert layer.forwards(input_).shape == (26 * 26 * 3,)
+
+    def test_backwards_rehsapes_grad(self):
+        input_size = (26, 26, 3)
+        layer = FlattenLayer(input_size=input_size)
+        input_ = np.random.random_sample(input_size)
+        loss_grad = np.random.random_sample(layer.output_size)
+
+        assert layer.backwards(input_, loss_grad).shape == input_.shape

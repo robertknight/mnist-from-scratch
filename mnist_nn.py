@@ -263,6 +263,26 @@ class Conv2DLayer:
         return (input_grad, weight_grad, bias_grad)
 
 
+class FlattenLayer:
+    def __init__(self, input_size=None):
+        self.input_size = input_size
+        self.biases = None
+        self.weights = None
+
+    @property
+    def output_size(self):
+        return (np.product(self.input_size),)
+
+    def init_weights(self):
+        pass
+
+    def forwards(self, inputs):
+        return inputs.flatten()
+
+    def backwards(self, inputs, loss_grad, compute_input_grad=True):
+        return (loss_grad.reshape(inputs.shape), None, None)
+
+
 class Model:
     """
     Simple neural network model consisting of a stack of layers.
