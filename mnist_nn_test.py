@@ -218,10 +218,12 @@ class TestFlattenLayer:
 
         assert layer.forwards(input_).shape == (26 * 26 * 3,)
 
-    def test_backwards_rehsapes_grad(self):
+    def test_backwards_reshapes_grad(self):
         input_size = (26, 26, 3)
         layer = FlattenLayer(input_size=input_size)
         input_ = np.random.random_sample(input_size)
         loss_grad = np.random.random_sample(layer.output_size)
 
-        assert layer.backwards(input_, loss_grad).shape == input_.shape
+        input_grad, *rest = layer.backwards(input_, loss_grad)
+
+        assert input_grad.shape == input_.shape
