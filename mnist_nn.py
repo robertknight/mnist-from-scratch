@@ -117,6 +117,10 @@ class Layer:
         self.input_size = input_size
         self.name = name
 
+    @property
+    def output_size(self):
+        return self.unit_count
+
     def init_weights(self):
         assert self.input_size is not None
         self.weights = np.random.uniform(-0.2, 0.2, (self.unit_count, self.input_size))
@@ -182,6 +186,11 @@ class Conv2DLayer:
         self.input_size = input_size
         self.name = name
 
+    @property
+    def output_size(self):
+        output_shape = np.subtract(self.input_size, self.filter_shape) + 1
+        return (self.channels, *output_shape)
+
     def init_weights(self):
         assert self.input_size is not None
 
@@ -203,11 +212,7 @@ class Conv2DLayer:
 
         input_h = inputs.shape[0]
         input_w = inputs.shape[1]
-        output_shape = (
-            self.channels,
-            input_h - filter_h + 1,
-            input_w - filter_w + 1
-        )
+        output_shape = self.output_size
 
         # Compute gradients of activation input wrt. loss.
         activation_grads = np.zeros(output_shape)

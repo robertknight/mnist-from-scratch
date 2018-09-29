@@ -147,6 +147,13 @@ def _minimize_output(layer, input_, steps, learning_rate, train_weights=True):
 
 class TestConv2DLayer:
 
+    def test_output_size_is_correct(self):
+        input_size = (28, 28)
+        layer = Conv2DLayer(64, (3, 3), activation=Relu(), input_size=input_size)
+        layer.init_weights()
+
+        assert layer.output_size == (64, 26, 26)
+
     def test_forwards_returns_correct_output_shape(self):
         input_size = (28, 28)
         layer = Conv2DLayer(64, (3, 3), activation=Relu(), input_size=input_size)
