@@ -203,14 +203,23 @@ class Conv2DLayer:
 
         input_h = inputs.shape[0]
         input_w = inputs.shape[1]
+        output_shape = (
+            self.channels,
+            input_h - filter_h + 1,
+            input_w - filter_w + 1
+        )
+
+        # Compute gradients of activation input wrt. loss.
+        activation_grads = np.zeros(output_shape)
+        for channel in range(self.channels):
+            channel_output = conv2d(inputs, self.weights[channel])
+            activation_grads[channel] = np.matmul(
+                self.activation.gradient(channel_output), loss_grad[channel]
+            )
 
         # Compute gradient of weights wrt. loss.
         weight_grad = np.zeros(self.weights.shape)
         for channel in range(self.channels):
-            channel_output = conv2d(inputs, self.weights[channel])
-            activation_grad = np.matmul(self.activation.gradient(channel_output),
-                                        loss_grad[channel])
-
             # Compute weight gradient for each element of filter.
             # The filter is typically much smaller than the input so we get
             # more efficient vectorization than looping over windows in the input.
@@ -221,7 +230,7 @@ class Conv2DLayer:
                         x:input_w - filter_w + x + 1
                     ]
                     weight_grad[channel][y][x] = np.mean(
-                        np.multiply(filter_inputs, activation_grad)
+                        np.multiply(filter_inputs, activation_grads[channel])
                     )
 
         # Compute gradient of inputs wrt. loss.
@@ -236,7 +245,8 @@ class Conv2DLayer:
                     y:input_h - filter_h + y + 1,
                     x:input_w - filter_w + x + 1
                 ]
-                input_grad_window += np.sum(self.weights[:, y, x]) * activation_grad
+                for channel in range(self.channels):
+                    input_grad_window += self.weights[channel, y, x] * activation_grads[channel]
 
                 weight_count_window = weight_counts[
                     y:input_h - filter_h + y + 1,

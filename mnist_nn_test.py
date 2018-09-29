@@ -182,7 +182,7 @@ class TestConv2DLayer:
 
     def test_backwards_returns_input_grad(self):
         input_size = (9, 9)
-        layer = Conv2DLayer(1, (3, 3), activation=Linear(), input_size=input_size)
+        layer = Conv2DLayer(3, (3, 3), activation=Linear(), input_size=input_size)
         layer.init_weights()
         input_ = np.random.random_sample(input_size) * 10
 
