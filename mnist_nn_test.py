@@ -112,12 +112,12 @@ class TestConv2d:
         assert_almost_equal(conv2d(input_, filter_), expected_output)
 
 
-def _minimize_output(layer, input_, steps, learning_rate):
+def _minimize_output(layer, input_, steps, learning_rate, train_weights=True):
     """
-    Train weights of a Conv2DLayer to minimize abs sum of output given an input.
+    Adjust weights or inputs of a Conv2DLayer to minimize abs sum of output.
 
-    This is designed to test that the weight gradients during backprop push
-    the weights in the right direction.
+    This is designed to test that the gradients during backprop push in the
+    right direction.
 
     Returns the losses after each step.
     """
@@ -131,11 +131,14 @@ def _minimize_output(layer, input_, steps, learning_rate):
         losses.append(loss)
         loss_grad = np.sign(output)
 
-        _, weight_grad, _ = layer.backwards(input_, loss_grad, compute_input_grad=False)
+        input_grad, weight_grad, _ = layer.backwards(input_, loss_grad, compute_input_grad=False)
         assert weight_grad.shape == layer.weights.shape
 
         for channel in range(channels):
-            layer.weights[channel] -= learning_rate * weight_grad[channel]
+            if train_weights:
+                layer.weights[channel] -= learning_rate * weight_grad[channel]
+            else:
+                input_ -= learning_rate * input_grad
 
         learning_rate = learning_rate * 0.9
 
@@ -172,6 +175,18 @@ class TestConv2DLayer:
         layer.init_weights()
         input_ = np.random.random_sample(input_size)
 
-        losses = _minimize_output(layer, input_, steps=10, learning_rate=0.001)
+        losses = _minimize_output(layer, input_, steps=10, learning_rate=0.001,
+                                  train_weights=True)
+
+        assert losses[-1] < losses[0]
+
+    def test_backwards_returns_input_grad(self):
+        input_size = (9, 9)
+        layer = Conv2DLayer(1, (3, 3), activation=Linear(), input_size=input_size)
+        layer.init_weights()
+        input_ = np.random.random_sample(input_size) * 10
+
+        losses = _minimize_output(layer, input_, steps=10, learning_rate=0.5,
+                                  train_weights=False)
 
         assert losses[-1] < losses[0]
