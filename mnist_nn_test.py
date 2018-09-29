@@ -67,7 +67,7 @@ class TestSoftmax:
 class TestLayer:
     def test_forwards_computes_output(self):
         activation = Relu()
-        layer = Layer(1, activation, 2)
+        layer = Layer(1, activation, (2,))
         layer.init_weights()
 
         inputs = np.array([1, 2])
@@ -77,7 +77,7 @@ class TestLayer:
 
     def test_backwards_computes_gradient(self):
         activation = Relu()
-        layer = Layer(2, activation, 2)
+        layer = Layer(2, activation, (2,))
         layer.init_weights()
 
         # Dummy loss which should drive the weights to zero.
