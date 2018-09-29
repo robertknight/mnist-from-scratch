@@ -119,11 +119,13 @@ class Layer:
 
     @property
     def output_size(self):
-        return self.unit_count
+        return (self.unit_count,)
 
     def init_weights(self):
         assert self.input_size is not None
-        self.weights = np.random.uniform(-0.2, 0.2, (self.unit_count, self.input_size))
+        assert len(self.input_size) == 1
+
+        self.weights = np.random.uniform(-0.2, 0.2, (self.unit_count, *self.input_size))
         self.biases = np.zeros(self.unit_count)
 
     def forwards(self, inputs):
@@ -142,7 +144,7 @@ class Layer:
         z_grad = np.matmul(self.activation.gradient(z), loss_grad)
         bias_grad = z_grad
         weight_grad = np.matmul(z_grad.reshape((self.unit_count, 1)),
-                                inputs.reshape((1, self.input_size)))
+                                inputs.reshape((1, *self.input_size)))
 
         if compute_input_grad:
             input_grad = np.matmul(np.transpose(self.weights), z_grad)
@@ -184,6 +186,7 @@ class Conv2DLayer:
         self.filter_shape = filter_shape
         self.activation = activation
         self.input_size = input_size
+        self.biases = None
         self.name = name
 
     @property
@@ -194,9 +197,12 @@ class Conv2DLayer:
     def init_weights(self):
         assert self.input_size is not None
 
+        self.biases = None
         self.weights = np.random.uniform(-0.2, 0.2, (self.channels, *self.filter_shape))
 
     def forwards(self, inputs):
+        assert inputs.shape == self.input_size
+
         channel_outputs = []
         for channel in range(self.channels):
             channel_output = conv2d(inputs, self.weights[channel])
@@ -205,6 +211,9 @@ class Conv2DLayer:
         return np.stack(channel_outputs, axis=0)
 
     def backwards(self, inputs, loss_grad, compute_input_grad=True):
+        assert inputs.shape == self.input_size
+        assert loss_grad.shape == self.output_size
+
         filter_w, filter_h = self.filter_shape
         input_w, input_h = inputs.shape
 
@@ -296,7 +305,7 @@ class Model:
             if i == 0:
                 layers[0].input_size = input_size
             else:
-                layers[i].input_size = layers[i - 1].unit_count
+                layers[i].input_size = layers[i - 1].output_size
 
     def fit(self, data, labels, batch_size, epochs, learning_rate, loss_op,
             learning_rate_decay=0.):
@@ -340,8 +349,10 @@ class Model:
         sum_bias_grads = {}
 
         for layer in self.layers:
-            sum_weight_grads[layer] = np.zeros(layer.weights.shape)
-            sum_bias_grads[layer] = np.zeros(layer.biases.shape)
+            if layer.weights is not None:
+                sum_weight_grads[layer] = np.zeros(layer.weights.shape)
+            if layer.biases is not None:
+                sum_bias_grads[layer] = np.zeros(layer.biases.shape)
 
         total_errors = 0
 
@@ -365,14 +376,20 @@ class Model:
                 input_grad, weight_grad, bias_grad = layer.backwards(inputs, input_grad,
                                                                      compute_input_grad=compute_input_grad)
 
-                sum_weight_grads[layer] += weight_grad
-                sum_bias_grads[layer] += bias_grad
+                if layer.weights is not None:
+                    sum_weight_grads[layer] += weight_grad
+                if layer.biases is not None:
+                    sum_bias_grads[layer] += bias_grad
 
         for layer, sum_weight_grad in sum_weight_grads.items():
+            if layer.weights is None:
+                continue
             mean_grad = sum_weight_grad / len(batch)
             layer.weights = layer.weights - learning_rate * mean_grad
 
         for layer, sum_bias_grad in sum_bias_grads.items():
+            if layer.biases is None:
+                continue
             mean_grad = sum_bias_grad / len(batch)
             layer.biases = layer.biases - learning_rate * mean_grad
 
