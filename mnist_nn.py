@@ -204,6 +204,7 @@ class Conv2DLayer:
         input_h = inputs.shape[0]
         input_w = inputs.shape[1]
 
+        # Compute gradient of weights wrt. loss.
         weight_grad = np.zeros(self.weights.shape)
         for channel in range(self.channels):
             channel_output = conv2d(inputs, self.weights[channel])
@@ -213,8 +214,8 @@ class Conv2DLayer:
             # Compute weight gradient for each element of filter.
             # The filter is typically much smaller than the input so we get
             # more efficient vectorization than looping over windows in the input.
-            for y in range(self.filter_shape[0]):
-                for x in range(self.filter_shape[1]):
+            for y in range(filter_h):
+                for x in range(filter_w):
                     filter_inputs = inputs[
                         y:input_h - filter_h + y + 1,
                         x:input_w - filter_w + x + 1
@@ -223,25 +224,26 @@ class Conv2DLayer:
                         np.multiply(filter_inputs, activation_grad)
                     )
 
-        # Extremely inefficient input gradient computation.
-        def weight_activation_grads(i, j):
-            for channel in range(self.channels):
-                for y in range(filter_h):
-                    for x in range(filter_w):
-                        if (y <= i and i <= (input_h - filter_h + y) and
-                                x <= j and j <= (input_w - filter_w + x)):
-                            activation_y = i - y
-                            activation_x = j - x
-                            grad = activation_grad[activation_y][activation_x]
-                            yield (self.weights[channel][y][x], grad)
-
+        # Compute gradient of inputs wrt. loss.
         input_grad = np.zeros(inputs.shape)
-        for i in range(input_h):
-            for j in range(input_w):
-                # Compute mean(weight * activation_grad) for all
-                # (weight, activation_grad) pairs associated with this input pos.
-                grads = [w * ag for w, ag in weight_activation_grads(i, j)]
-                input_grad[i][j] = np.mean(grads)
+
+        # Number of times each input position was multiplied by a weight.
+        weight_counts = np.zeros(inputs.shape)
+
+        for y in range(filter_h):
+            for x in range(filter_w):
+                input_grad_window = input_grad[
+                    y:input_h - filter_h + y + 1,
+                    x:input_w - filter_w + x + 1
+                ]
+                input_grad_window += np.sum(self.weights[:, y, x]) * activation_grad
+
+                weight_count_window = weight_counts[
+                    y:input_h - filter_h + y + 1,
+                    x:input_w - filter_w + x + 1
+                ]
+                weight_count_window += np.ones(weight_count_window.shape) * self.channels
+        input_grad /= weight_counts
 
         return (input_grad, weight_grad, bias_grad)
 
