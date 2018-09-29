@@ -173,6 +173,9 @@ class TestConv2DLayer:
         input_size = (28, 28)
         layer = Conv2DLayer(64, (3, 3), activation=Linear(), input_size=input_size)
         layer.init_weights()
+
+        # FIXME: If the initial loss happens to be small, the learning rate may
+        # be too high and the test can fail.
         input_ = np.random.random_sample(input_size)
 
         losses = _minimize_output(layer, input_, steps=10, learning_rate=0.001,
@@ -181,12 +184,15 @@ class TestConv2DLayer:
         assert losses[-1] < losses[0]
 
     def test_backwards_returns_input_grad(self):
-        input_size = (9, 9)
-        layer = Conv2DLayer(3, (3, 3), activation=Linear(), input_size=input_size)
+        input_size = (28, 28)
+        layer = Conv2DLayer(64, (3, 3), activation=Linear(), input_size=input_size)
         layer.init_weights()
+
+        # FIXME: If the initial loss happens to be small, the learning rate may
+        # be too high and the test can fail.
         input_ = np.random.random_sample(input_size) * 10
 
-        losses = _minimize_output(layer, input_, steps=10, learning_rate=0.5,
+        losses = _minimize_output(layer, input_, steps=10, learning_rate=0.01,
                                   train_weights=False)
 
         assert losses[-1] < losses[0]
