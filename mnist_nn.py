@@ -130,21 +130,21 @@ class Layer:
 
     def forwards(self, inputs):
         z = np.dot(self.weights, inputs) + self.biases
+        self.last_inputs = inputs
+        self.last_z = z
         return self.activation(z)
 
-    def backwards(self, inputs, loss_grad, compute_input_grad=True):
+    def backwards(self, loss_grad, compute_input_grad=True):
         """
         Compute the gradients with respect to the loss against a training example.
 
-        :param inputs: The inputs to this layer corresponding to `loss_grad`.
         :param loss_grad: Gradient of loss wrt. each of this layer's outputs
         :return: 2-tuple of gradient of inputs and weights wrt. loss.
         """
-        z = np.dot(self.weights, inputs) + self.biases
-        z_grad = np.matmul(self.activation.gradient(z), loss_grad)
+        z_grad = np.matmul(self.activation.gradient(self.last_z), loss_grad)
         bias_grad = z_grad
         weight_grad = np.matmul(z_grad.reshape((self.unit_count, 1)),
-                                inputs.reshape((1, *self.input_size)))
+                                self.last_inputs.reshape((1, *self.input_size)))
 
         if compute_input_grad:
             input_grad = np.matmul(np.transpose(self.weights), z_grad)
@@ -208,25 +208,25 @@ class Conv2DLayer:
             channel_output = conv2d(inputs, self.weights[channel])
             channel_output = self.activation(channel_output)
             channel_outputs.append(channel_output)
-        return np.stack(channel_outputs, axis=0)
+        self.last_outputs = np.stack(channel_outputs, axis=0)
+        self.last_inputs = inputs
 
-    def backwards(self, inputs, loss_grad, compute_input_grad=True):
-        assert inputs.shape == self.input_size
+        return self.last_outputs
+
+    def backwards(self, loss_grad, compute_input_grad=True):
         assert loss_grad.shape == self.output_size
 
         filter_w, filter_h = self.filter_shape
-        input_w, input_h = inputs.shape
+        input_w, input_h = self.input_size
 
         bias_grad = None  # Not implemented yet.
 
-        input_h = inputs.shape[0]
-        input_w = inputs.shape[1]
         output_shape = self.output_size
 
         # Compute gradients of activation input wrt. loss.
         activation_grads = np.zeros(output_shape)
         for channel in range(self.channels):
-            channel_output = conv2d(inputs, self.weights[channel])
+            channel_output = self.last_outputs[channel]
             activation_grads[channel] = np.matmul(
                 self.activation.gradient(channel_output), loss_grad[channel]
             )
@@ -239,7 +239,7 @@ class Conv2DLayer:
             # more efficient vectorization than looping over windows in the input.
             for y in range(filter_h):
                 for x in range(filter_w):
-                    filter_inputs = inputs[
+                    filter_inputs = self.last_inputs[
                         y:input_h - filter_h + y + 1,
                         x:input_w - filter_w + x + 1
                     ]
@@ -247,27 +247,30 @@ class Conv2DLayer:
                         np.multiply(filter_inputs, activation_grads[channel])
                     )
 
-        # Compute gradient of inputs wrt. loss.
-        input_grad = np.zeros(inputs.shape)
+        if compute_input_grad:
+            # Compute gradient of inputs wrt. loss.
+            input_grad = np.zeros(self.input_size)
 
-        # Number of times each input position was multiplied by a weight.
-        weight_counts = np.zeros(inputs.shape)
+            # Number of times each input position was multiplied by a weight.
+            weight_counts = np.zeros(self.input_size)
 
-        for y in range(filter_h):
-            for x in range(filter_w):
-                input_grad_window = input_grad[
-                    y:input_h - filter_h + y + 1,
-                    x:input_w - filter_w + x + 1
-                ]
-                for channel in range(self.channels):
-                    input_grad_window += self.weights[channel, y, x] * activation_grads[channel]
+            for y in range(filter_h):
+                for x in range(filter_w):
+                    input_grad_window = input_grad[
+                        y:input_h - filter_h + y + 1,
+                        x:input_w - filter_w + x + 1
+                    ]
+                    for channel in range(self.channels):
+                        input_grad_window += self.weights[channel, y, x] * activation_grads[channel]
 
-                weight_count_window = weight_counts[
-                    y:input_h - filter_h + y + 1,
-                    x:input_w - filter_w + x + 1
-                ]
-                weight_count_window += np.ones(weight_count_window.shape) * self.channels
-        input_grad /= weight_counts
+                    weight_count_window = weight_counts[
+                        y:input_h - filter_h + y + 1,
+                        x:input_w - filter_w + x + 1
+                    ]
+                    weight_count_window += np.ones(weight_count_window.shape) * self.channels
+            input_grad /= weight_counts
+        else:
+            input_grad = None
 
         return (input_grad, weight_grad, bias_grad)
 
@@ -288,8 +291,8 @@ class FlattenLayer:
     def forwards(self, inputs):
         return inputs.flatten()
 
-    def backwards(self, inputs, loss_grad, compute_input_grad=True):
-        return (loss_grad.reshape(inputs.shape), None, None)
+    def backwards(self, loss_grad, compute_input_grad=True):
+        return (loss_grad.reshape(self.input_size), None, None)
 
 
 class Model:
@@ -359,10 +362,8 @@ class Model:
         for i, (example, label) in enumerate(batch):
             target = onehot(label, max_label + 1)
             output = example
-            layer_inputs = {}
 
             for layer in self.layers:
-                layer_inputs[layer] = output
                 output = layer.forwards(output)
 
             predicted = np.argmax(output)
@@ -371,9 +372,8 @@ class Model:
 
             input_grad = loss_op.gradient(target, output)
             for layer in reversed(self.layers):
-                inputs = layer_inputs[layer]
                 compute_input_grad = layer != self.layers[0]
-                input_grad, weight_grad, bias_grad = layer.backwards(inputs, input_grad,
+                input_grad, weight_grad, bias_grad = layer.backwards(input_grad,
                                                                      compute_input_grad=compute_input_grad)
 
                 if layer.weights is not None:

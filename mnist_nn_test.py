@@ -88,7 +88,7 @@ class TestLayer:
 
         for _ in range(0, 100):
             output = layer.forwards(inputs)
-            _, weight_grad, _ = layer.backwards(inputs, dummy_loss(output))
+            _, weight_grad, _ = layer.backwards(dummy_loss(output))
             layer.weights = layer.weights - weight_grad * 0.01
 
         assert_almost_equal(output, 0.)
@@ -132,7 +132,8 @@ def _minimize_output(layer, input_, steps, learning_rate, train_weights=True):
         losses.append(loss)
         loss_grad = np.sign(output)
 
-        input_grad, weight_grad, _ = layer.backwards(input_, loss_grad, compute_input_grad=False)
+        layer.forwards(input_)
+        input_grad, weight_grad, _ = layer.backwards(loss_grad, compute_input_grad=not train_weights)
         assert weight_grad.shape == layer.weights.shape
 
         for channel in range(channels):
@@ -224,6 +225,7 @@ class TestFlattenLayer:
         input_ = np.random.random_sample(input_size)
         loss_grad = np.random.random_sample(layer.output_size)
 
-        input_grad, *rest = layer.backwards(input_, loss_grad)
+        layer.forwards(input_)
+        input_grad, *rest = layer.backwards(loss_grad)
 
         assert input_grad.shape == input_.shape
