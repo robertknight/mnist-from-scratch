@@ -57,7 +57,12 @@ class Relu:
         return np.maximum(0., x)
 
     def gradient(self, x):
-        return np.diag(np.where(x >= 0., 1., 0.))
+        if x.ndim == 1:
+            return np.diag(np.where(x >= 0., 1., 0.))
+        else:
+            # FIXME - This is inconsistent with the case when the input is
+            # a vector, though the end result still works.
+            return np.where(x >= 0., 1., 0.)
 
 
 class Softmax:
@@ -203,15 +208,18 @@ class Conv2DLayer:
     def forwards(self, inputs):
         assert inputs.shape == self.input_size
 
-        channel_outputs = []
+        conv2d_outputs = []
         for channel in range(self.channels):
-            channel_output = conv2d(inputs, self.weights[channel])
-            channel_output = self.activation(channel_output)
-            channel_outputs.append(channel_output)
-        self.last_outputs = np.stack(channel_outputs, axis=0)
+            conv2d_output = conv2d(inputs, self.weights[channel])
+            conv2d_outputs.append(conv2d_output)
+
+        conv2d_outputs = np.stack(conv2d_outputs, axis=0)
+        channel_outputs = self.activation(conv2d_outputs)
+
+        self.last_conv2d_outputs = conv2d_outputs
         self.last_inputs = inputs
 
-        return self.last_outputs
+        return channel_outputs
 
     def backwards(self, loss_grad, compute_input_grad=True):
         assert loss_grad.shape == self.output_size
@@ -221,15 +229,13 @@ class Conv2DLayer:
 
         bias_grad = None  # Not implemented yet.
 
-        output_shape = self.output_size
-
         # Compute gradients of activation input wrt. loss.
-        activation_grads = np.zeros(output_shape)
+        activation_grads = []
         for channel in range(self.channels):
-            channel_output = self.last_outputs[channel]
-            activation_grads[channel] = np.matmul(
-                self.activation.gradient(channel_output), loss_grad[channel]
-            )
+            channel_output = self.last_conv2d_outputs[channel]
+            activation_grads.append(self.activation.gradient(channel_output))
+        activation_grads = np.stack(activation_grads)
+        activation_grads = np.matmul(activation_grads, loss_grad)
 
         # Compute gradient of weights wrt. loss.
         weight_grad = np.zeros(self.weights.shape)
