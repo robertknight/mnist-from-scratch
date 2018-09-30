@@ -52,16 +52,19 @@ class TestSoftmax:
 
     def test_gradient(self):
         softmax = Softmax()
-        x = np.array([1, 3, 5])
-        y = softmax(x)
-        g = softmax.gradient(x)
+        loss_op = CategoricalCrossentropy()
+        x = np.array([1., 3., 5.])
+        target = np.array([1.0, 0.01, 0.01])
 
-        for i in range(len(x)):
-            dx = np.zeros(len(x))
-            dx[i] = 0.1
-            xp = x + dx
-            yp = softmax(xp)
-            assert_almost_equal(yp[i], y[i] + (g[i][i] * dx[i]), 3)
+        losses = []
+        for _ in range(5):
+            y = softmax(x)
+            losses.append(loss_op(target, y))
+            loss_grad = loss_op.gradient(target, y)
+            g = softmax.gradient(x, loss_grad)
+            x -= 0.1 * g
+
+        assert_almost_equal(losses, [4.1657903, 3.9919632, 3.8205074, 3.6516005, 3.485433])
 
 
 class TestLayer:

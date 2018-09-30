@@ -46,8 +46,8 @@ class Linear:
     def __call__(self, x):
         return x
 
-    def gradient(self, x):
-        return np.ones(x.shape)
+    def gradient(self, x, grads):
+        return x
 
 
 class Relu:
@@ -56,13 +56,8 @@ class Relu:
     def __call__(self, x):
         return np.maximum(0., x)
 
-    def gradient(self, x):
-        if x.ndim == 1:
-            return np.diag(np.where(x >= 0., 1., 0.))
-        else:
-            # FIXME - This is inconsistent with the case when the input is
-            # a vector, though the end result still works.
-            return np.where(x >= 0., 1., 0.)
+    def gradient(self, x, grads):
+        return np.where(x >= 0., 1., 0.) * grads
 
 
 class Softmax:
@@ -75,23 +70,10 @@ class Softmax:
         exp_s = np.exp(shifted_x)
         return exp_s / np.sum(exp_s)
 
-    def gradient(self, x):
-        # See https://eli.thegreenplace.net/2016/the-softmax-function-and-its-derivative/
-        # and https://eli.thegreenplace.net/2016/the-chain-rule-of-calculus/.
-
-        softmax_row = self(x)
-        softmax_col = softmax_row.reshape((len(x), 1))
-
-        # Compute non-diagonal entries of the jacobian.
-        out = -softmax_col * softmax_row
-
-        # Compute diagonal entries of the jacobian.
-        out_diag = softmax_row * (1 - softmax_col)
-
-        # Overlay diagonal entries on top of other entries.
-        np.copyto(out, out_diag, where=np.eye(len(x), dtype='bool'))
-
-        return out
+    def gradient(self, x, grads):
+        # Adapted from `_SoftmaxGradient` in Tensorflow's `nn_grad.py`.
+        softmax = self(x)
+        return (softmax * grads) - np.sum(softmax * grads, -1, keepdims=True) * softmax
 
 
 class ProgressReporter:
@@ -146,7 +128,7 @@ class Layer:
         :param loss_grad: Gradient of loss wrt. each of this layer's outputs
         :return: 2-tuple of gradient of inputs and weights wrt. loss.
         """
-        z_grad = np.matmul(self.activation.gradient(self.last_z), loss_grad)
+        z_grad = self.activation.gradient(self.last_z, loss_grad)
         bias_grad = z_grad
         weight_grad = np.matmul(z_grad.reshape((self.unit_count, 1)),
                                 self.last_inputs.reshape((1, *self.input_size)))
@@ -233,9 +215,9 @@ class Conv2DLayer:
         activation_grads = []
         for channel in range(self.channels):
             channel_output = self.last_conv2d_outputs[channel]
-            activation_grads.append(self.activation.gradient(channel_output))
+            channel_act_grads = self.activation.gradient(channel_output, loss_grad[channel])
+            activation_grads.append(channel_act_grads)
         activation_grads = np.stack(activation_grads)
-        activation_grads = np.matmul(activation_grads, loss_grad)
 
         # Compute gradient of weights wrt. loss.
         weight_grad = np.zeros(self.weights.shape)
