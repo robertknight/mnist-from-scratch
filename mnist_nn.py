@@ -224,14 +224,9 @@ class Conv2DLayer:
         bias_grad = None  # Not implemented yet.
 
         # Compute gradients of activation input wrt. loss.
-        activation_grads = []
-        for channel in range(self.channels):
-            channel_output = self.last_conv2d_outputs[channel]
-            channel_act_grads = self.activation.gradient(
-                channel_output, loss_grad[channel]
-            )
-            activation_grads.append(channel_act_grads)
-        activation_grads = np.stack(activation_grads)
+        activation_grads = self.activation.gradient(
+            self.last_conv2d_outputs, loss_grad
+        )
 
         # Compute gradient of weights wrt. loss.
         weight_grad = np.zeros(self.weights.shape)
