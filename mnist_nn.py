@@ -18,7 +18,7 @@ EPSILON = 1e-7
 
 def onehot(x, length):
     xs = np.zeros(length)
-    xs[x] = 1.
+    xs[x] = 1.0
     return xs
 
 
@@ -37,7 +37,7 @@ class CategoricalCrossentropy:
     def gradient(self, targets, predictions):
         targets = np.clip(targets, EPSILON, 1.0)
         predictions = np.clip(predictions, EPSILON, 1.0)
-        return - (targets / predictions)
+        return -(targets / predictions)
 
 
 class Linear:
@@ -54,10 +54,10 @@ class Relu:
     """Rectified Linear Unit non-linearity for unit activations."""
 
     def __call__(self, x):
-        return np.maximum(0., x)
+        return np.maximum(0.0, x)
 
     def gradient(self, x, grads):
-        return np.where(x >= 0., 1., 0.) * grads
+        return np.where(x >= 0.0, 1.0, 0.0) * grads
 
 
 class Softmax:
@@ -77,25 +77,35 @@ class Softmax:
 
 
 class ProgressReporter:
-    def report_training_progress(self, epoch, total_examples, examples_processed,
-                                 epoch_start_time, epoch_total_errors, is_last_batch):
+    def report_training_progress(
+        self,
+        epoch,
+        total_examples,
+        examples_processed,
+        epoch_start_time,
+        epoch_total_errors,
+        is_last_batch,
+    ):
         now = time.time()
         time_per_example = (now - epoch_start_time) / examples_processed
-        time_per_example_us = time_per_example * 1000_000
+        time_per_example_us = time_per_example * 1_000_000
         accuracy = 1 - (epoch_total_errors / examples_processed)
-        print('\r', end='')
-        print(f'epoch {epoch} ({examples_processed} / {total_examples})  '
-              f'{time_per_example_us:.2f}us/example',
-              f'  accuracy {accuracy:.3f}',
-              end='')
+        print("\r", end="")
+        print(
+            f"epoch {epoch} ({examples_processed} / {total_examples})  "
+            f"{time_per_example_us:.2f}us/example",
+            f"  accuracy {accuracy:.3f}",
+            end="",
+        )
         if is_last_batch:
-            print('\n', end='')
+            print("\n", end="")
 
 
 class Layer:
     """
     A single dense layer in a neural network implementing `y = activation(x * weight)`.
     """
+
     def __init__(self, unit_count, activation, input_size=None, name=None):
         self.activation = activation
         self.unit_count = unit_count
@@ -130,8 +140,10 @@ class Layer:
         """
         z_grad = self.activation.gradient(self.last_z, loss_grad)
         bias_grad = z_grad
-        weight_grad = np.matmul(z_grad.reshape((self.unit_count, 1)),
-                                self.last_inputs.reshape((1, *self.input_size)))
+        weight_grad = np.matmul(
+            z_grad.reshape((self.unit_count, 1)),
+            self.last_inputs.reshape((1, *self.input_size)),
+        )
 
         if compute_input_grad:
             input_grad = np.matmul(np.transpose(self.weights), z_grad)
@@ -160,7 +172,7 @@ def conv2d(matrix, filter_):
 
     # Multiply each window by corresponding filter element, and then sum the
     # corresponding elements of each window.
-    return np.einsum('ij,ijkl->kl', filter_, windows)
+    return np.einsum("ij,ijkl->kl", filter_, windows)
 
 
 class Conv2DLayer:
@@ -215,7 +227,9 @@ class Conv2DLayer:
         activation_grads = []
         for channel in range(self.channels):
             channel_output = self.last_conv2d_outputs[channel]
-            channel_act_grads = self.activation.gradient(channel_output, loss_grad[channel])
+            channel_act_grads = self.activation.gradient(
+                channel_output, loss_grad[channel]
+            )
             activation_grads.append(channel_act_grads)
         activation_grads = np.stack(activation_grads)
 
@@ -228,10 +242,11 @@ class Conv2DLayer:
         for y in range(filter_h):
             for x in range(filter_w):
                 filter_inputs = self.last_inputs[
-                    y:input_h - filter_h + y + 1,
-                    x:input_w - filter_w + x + 1
+                    y : input_h - filter_h + y + 1, x : input_w - filter_w + x + 1
                 ]
-                weight_grad[:, y, x] = np.einsum('ij,Cij->C', filter_inputs, activation_grads)
+                weight_grad[:, y, x] = np.einsum(
+                    "ij,Cij->C", filter_inputs, activation_grads
+                )
                 weight_grad[:, y, x] /= np.product(filter_inputs.shape)
 
         if compute_input_grad:
@@ -241,20 +256,20 @@ class Conv2DLayer:
             # Number of times each input position was multiplied by a weight.
             weight_counts = np.zeros(self.input_size)
 
-            weight_grads = np.einsum('Cyx,Cij->yxij', self.weights, activation_grads)
+            weight_grads = np.einsum("Cyx,Cij->yxij", self.weights, activation_grads)
             for y in range(filter_h):
                 for x in range(filter_w):
                     input_grad_window = input_grad[
-                        y:input_h - filter_h + y + 1,
-                        x:input_w - filter_w + x + 1
+                        y : input_h - filter_h + y + 1, x : input_w - filter_w + x + 1
                     ]
                     np.copyto(input_grad_window, weight_grads[y, x])
 
                     weight_count_window = weight_counts[
-                        y:input_h - filter_h + y + 1,
-                        x:input_w - filter_w + x + 1
+                        y : input_h - filter_h + y + 1, x : input_w - filter_w + x + 1
                     ]
-                    weight_count_window += np.ones(weight_count_window.shape) * self.channels
+                    weight_count_window += (
+                        np.ones(weight_count_window.shape) * self.channels
+                    )
             input_grad /= weight_counts
         else:
             input_grad = None
@@ -297,8 +312,16 @@ class Model:
             else:
                 layers[i].input_size = layers[i - 1].output_size
 
-    def fit(self, data, labels, batch_size, epochs, learning_rate, loss_op,
-            learning_rate_decay=0.):
+    def fit(
+        self,
+        data,
+        labels,
+        batch_size,
+        epochs,
+        learning_rate,
+        loss_op,
+        learning_rate_decay=0.0,
+    ):
 
         """Learn parameters given input training `data` and target `labels`."""
 
@@ -313,7 +336,12 @@ class Model:
         max_label = np.max(labels)
         batches = []
         for offset in range(0, len(data), batch_size):
-            batches.append((data[offset:offset + batch_size], labels[offset:offset + batch_size]))
+            batches.append(
+                (
+                    data[offset : offset + batch_size],
+                    labels[offset : offset + batch_size],
+                )
+            )
 
         # Train model.
         for epoch in range(0, epochs):
@@ -322,16 +350,20 @@ class Model:
             for batch_index, (batch_data, batch_labels) in enumerate(batches):
                 shuffled_batch = list(zip(batch_data, batch_labels))
                 np.random.shuffle(shuffled_batch)
-                batch_errors = self._fit_batch(shuffled_batch, max_label, loss_op, learning_rate)
+                batch_errors = self._fit_batch(
+                    shuffled_batch, max_label, loss_op, learning_rate
+                )
                 epoch_errors += batch_errors
 
-                reporter.report_training_progress(epoch=epoch,
-                                                  total_examples=len(data),
-                                                  examples_processed=(batch_index + 1) * batch_size,
-                                                  epoch_start_time=epoch_start_time,
-                                                  epoch_total_errors=epoch_errors,
-                                                  is_last_batch=batch_index == len(batches) - 1)
-            learning_rate *= (1 - learning_rate_decay)
+                reporter.report_training_progress(
+                    epoch=epoch,
+                    total_examples=len(data),
+                    examples_processed=(batch_index + 1) * batch_size,
+                    epoch_start_time=epoch_start_time,
+                    epoch_total_errors=epoch_errors,
+                    is_last_batch=batch_index == len(batches) - 1,
+                )
+            learning_rate *= 1 - learning_rate_decay
 
     def _fit_batch(self, batch, max_label, loss_op, learning_rate):
         # Compute sum of cost gradients across all examples in batch.
@@ -360,8 +392,9 @@ class Model:
             input_grad = loss_op.gradient(target, output)
             for layer in reversed(self.layers):
                 compute_input_grad = layer != self.layers[0]
-                input_grad, weight_grad, bias_grad = layer.backwards(input_grad,
-                                                                     compute_input_grad=compute_input_grad)
+                input_grad, weight_grad, bias_grad = layer.backwards(
+                    input_grad, compute_input_grad=compute_input_grad
+                )
 
                 if layer.weights is not None:
                     sum_weight_grads[layer] += weight_grad
@@ -408,55 +441,80 @@ class Model:
         return 1 - (errors / len(data))
 
 
-def train_and_test(dataset_path, model='basic'):
+def train_and_test(dataset_path, model="basic"):
     # Debugging.
-    np.seterr(divide='raise')
+    np.seterr(divide="raise")
 
-    if model == 'conv2d':
+    if model == "conv2d":
         # Load train and test datasets.
-        print('reading data...')
-        train_images, train_labels, test_images, test_labels = load_mnist_dataset(dataset_path, (28, 28))
+        print("reading data...")
+        train_images, train_labels, test_images, test_labels = load_mnist_dataset(
+            dataset_path, (28, 28)
+        )
 
-        model = Model(layers=[
-            Conv2DLayer(32, (3, 3), activation=Relu()),
-            FlattenLayer(),
-            Layer(32, name='relu', activation=Relu()),
-            Layer(10, name='softmax', activation=Softmax()),
-        ], input_size=(28, 28))
+        model = Model(
+            layers=[
+                Conv2DLayer(32, (3, 3), activation=Relu()),
+                FlattenLayer(),
+                Layer(32, name="relu", activation=Relu()),
+                Layer(10, name="softmax", activation=Softmax()),
+            ],
+            input_size=(28, 28),
+        )
 
-        print('training model...')
-        model.fit(train_images, train_labels,
-                  batch_size=32, epochs=10, learning_rate=0.15,
-                  learning_rate_decay=0.1,
-                  loss_op=CategoricalCrossentropy())
-    elif model == 'basic':
-        train_images, train_labels, test_images, test_labels = load_mnist_dataset(dataset_path, (28, 28))
+        print("training model...")
+        model.fit(
+            train_images,
+            train_labels,
+            batch_size=32,
+            epochs=10,
+            learning_rate=0.15,
+            learning_rate_decay=0.1,
+            loss_op=CategoricalCrossentropy(),
+        )
+    elif model == "basic":
+        train_images, train_labels, test_images, test_labels = load_mnist_dataset(
+            dataset_path, (28, 28)
+        )
 
-        model = Model(layers=[
-            Conv2DLayer(32, (3, 3), activation=Relu()),
-            FlattenLayer(),
-            Layer(32, name='relu', activation=Relu()),
-            Layer(10, name='softmax', activation=Softmax()),
-        ], input_size=(28, 28))
+        model = Model(
+            layers=[
+                Conv2DLayer(32, (3, 3), activation=Relu()),
+                FlattenLayer(),
+                Layer(32, name="relu", activation=Relu()),
+                Layer(10, name="softmax", activation=Softmax()),
+            ],
+            input_size=(28, 28),
+        )
 
-        print('training model...')
-        model.fit(train_images, train_labels,
-                  batch_size=32, epochs=10, learning_rate=0.15,
-                  learning_rate_decay=0.1,
-                  loss_op=CategoricalCrossentropy())
+        print("training model...")
+        model.fit(
+            train_images,
+            train_labels,
+            batch_size=32,
+            epochs=10,
+            learning_rate=0.15,
+            learning_rate_decay=0.1,
+            loss_op=CategoricalCrossentropy(),
+        )
     else:
-        raise Exception(f'Unknown model {model}')
+        raise Exception(f"Unknown model {model}")
 
-    print('evaluating model...')
+    print("evaluating model...")
     accuracy = model.evaluate(test_images, test_labels)
-    print('accuracy {:3f}'.format(accuracy))
+    print("accuracy {:3f}".format(accuracy))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-m, --model', dest='model', choices=('basic', 'conv2d'),
-                        default='basic', help='Network model to use')
-    parser.add_argument('dataset_path', help='Path to MNIST-formatted dataset')
+    parser.add_argument(
+        "-m, --model",
+        dest="model",
+        choices=("basic", "conv2d"),
+        default="basic",
+        help="Network model to use",
+    )
+    parser.add_argument("dataset_path", help="Path to MNIST-formatted dataset")
     args = parser.parse_args()
 
     train_and_test(dataset_path=args.dataset_path, model=args.model)

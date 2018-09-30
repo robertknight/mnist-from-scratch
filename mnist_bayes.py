@@ -12,13 +12,12 @@ from loader import load_mnist_dataset
 
 def normal_distribution_pdf(mean, variance, x):
     """Normal distribution probability density function (from Wikipedia)."""
-    exp = -((x - mean)**2. / (2. * variance))
-    denominator = np.sqrt(2. * math.pi * variance)
+    exp = -((x - mean) ** 2.0 / (2.0 * variance))
+    denominator = np.sqrt(2.0 * math.pi * variance)
     return (math.e ** exp) / denominator
 
 
 class NaiveBayesClassifier:
-
     def __init__(self, n_classes, n_features):
         # Prior probabilities for each class.
         self.priors = np.ones(n_classes) / n_classes
@@ -41,7 +40,9 @@ class NaiveBayesClassifier:
 
             # Compute mean and variance of features in this class.
             self.means[label] = np.mean(class_examples, 0)
-            self.variances[label] = np.clip(np.var(class_examples, 0), MIN_VARIANCE, MAX_VARIANCE)
+            self.variances[label] = np.clip(
+                np.var(class_examples, 0), MIN_VARIANCE, MAX_VARIANCE
+            )
 
     def predict(self, data):
         label_probs = np.zeros(self.n_classes)
@@ -67,18 +68,20 @@ class NaiveBayesClassifier:
 
 
 def train_and_test(dataset_path):
-    print('reading training data...')
-    train_images, train_labels, test_images, test_labels = load_mnist_dataset(dataset_path)
+    print("reading training data...")
+    train_images, train_labels, test_images, test_labels = load_mnist_dataset(
+        dataset_path
+    )
 
-    print('training...')
+    print("training...")
     model = NaiveBayesClassifier(n_classes=10, n_features=28 * 28)
     model.train(train_images, train_labels)
 
-    print('evaluating...')
+    print("evaluating...")
     test_accuracy = model.evaluate(test_images, test_labels)
-    print(f'test accuracy {test_accuracy}')
+    print(f"test accuracy {test_accuracy}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     dataset = sys.argv[1]
     train_and_test(dataset)

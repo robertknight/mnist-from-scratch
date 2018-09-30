@@ -23,19 +23,19 @@ from mnist_nn import (
 
 class TestOneHot:
     def test_returns_onehot_vec(self):
-        assert_array_equal(onehot(2, 5), [0., 0., 1., 0., 0.])
+        assert_array_equal(onehot(2, 5), [0.0, 0.0, 1.0, 0.0, 0.0])
 
         length = 10
         for i in range(0, length):
             vec = onehot(i, length)
             for k in range(0, length):
-                assert vec[k] == (1. if i == k else 0.)
+                assert vec[k] == (1.0 if i == k else 0.0)
 
 
 class TestCategoricalCrossentropy:
-    @pytest.mark.parametrize('x, y, expected_cc', [
-        ([0.1, 0.1, 0.8], [0.8, 0.1, 0.1], 2.0946),
-    ])
+    @pytest.mark.parametrize(
+        "x, y, expected_cc", [([0.1, 0.1, 0.8], [0.8, 0.1, 0.1], 2.0946)]
+    )
     def test_call(self, x, y, expected_cc):
         cc = CategoricalCrossentropy()
         x = np.array(x)
@@ -53,7 +53,7 @@ class TestSoftmax:
     def test_gradient(self):
         softmax = Softmax()
         loss_op = CategoricalCrossentropy()
-        x = np.array([1., 3., 5.])
+        x = np.array([1.0, 3.0, 5.0])
         target = np.array([1.0, 0.01, 0.01])
 
         losses = []
@@ -64,7 +64,9 @@ class TestSoftmax:
             g = softmax.gradient(x, loss_grad)
             x -= 0.1 * g
 
-        assert_almost_equal(losses, [4.1657903, 3.9919632, 3.8205074, 3.6516005, 3.485433])
+        assert_almost_equal(
+            losses, [4.1657903, 3.9919632, 3.8205074, 3.6516005, 3.485433]
+        )
 
 
 class TestLayer:
@@ -87,22 +89,21 @@ class TestLayer:
         def dummy_loss(output):
             return np.ones(output.shape)
 
-        inputs = np.array([1., 2.])
+        inputs = np.array([1.0, 2.0])
 
         for _ in range(0, 100):
             output = layer.forwards(inputs)
             _, weight_grad, _ = layer.backwards(dummy_loss(output))
             layer.weights = layer.weights - weight_grad * 0.01
 
-        assert_almost_equal(output, 0.)
+        assert_almost_equal(output, 0.0)
 
 
 class TestConv2d:
-    @pytest.mark.parametrize('input_shape,filter_shape', [
-        ((5, 5), (3, 3)),
-        ((10, 10), (3, 3)),
-        ((20, 20), (5, 5)),
-    ])
+    @pytest.mark.parametrize(
+        "input_shape,filter_shape",
+        [((5, 5), (3, 3)), ((10, 10), (3, 3)), ((20, 20), (5, 5))],
+    )
     def test_output_matches_explicit_loops(self, input_shape, filter_shape):
         input_ = np.random.random_sample(input_shape)
         filter_ = np.random.random_sample(filter_shape)
@@ -110,7 +111,9 @@ class TestConv2d:
         expected_output = np.zeros(np.subtract(input_shape, filter_shape) + 1)
         for i in range(expected_output.shape[0]):
             for j in range(expected_output.shape[1]):
-                input_window = input_[i:i + filter_.shape[0], j:j + filter_.shape[1]]
+                input_window = input_[
+                    i : i + filter_.shape[0], j : j + filter_.shape[1]
+                ]
                 expected_output[i][j] = np.sum(np.multiply(input_window, filter_))
 
         assert_almost_equal(conv2d(input_, filter_), expected_output)
@@ -136,7 +139,9 @@ def _minimize_output(layer, input_, steps, learning_rate, train_weights=True):
         loss_grad = np.sign(output)
 
         layer.forwards(input_)
-        input_grad, weight_grad, _ = layer.backwards(loss_grad, compute_input_grad=not train_weights)
+        input_grad, weight_grad, _ = layer.backwards(
+            loss_grad, compute_input_grad=not train_weights
+        )
         assert weight_grad.shape == layer.weights.shape
 
         for channel in range(channels):
@@ -151,7 +156,6 @@ def _minimize_output(layer, input_, steps, learning_rate, train_weights=True):
 
 
 class TestConv2DLayer:
-
     def test_output_size_is_correct(self):
         input_size = (28, 28)
         layer = Conv2DLayer(64, (3, 3), activation=Relu(), input_size=input_size)
@@ -190,8 +194,9 @@ class TestConv2DLayer:
         # be too high and the test can fail.
         input_ = np.random.random_sample(input_size)
 
-        losses = _minimize_output(layer, input_, steps=10, learning_rate=0.001,
-                                  train_weights=True)
+        losses = _minimize_output(
+            layer, input_, steps=10, learning_rate=0.001, train_weights=True
+        )
 
         assert losses[-1] < losses[0]
 
@@ -204,8 +209,9 @@ class TestConv2DLayer:
         # be too high and the test can fail.
         input_ = np.random.random_sample(input_size) * 10
 
-        losses = _minimize_output(layer, input_, steps=10, learning_rate=0.01,
-                                  train_weights=False)
+        losses = _minimize_output(
+            layer, input_, steps=10, learning_rate=0.01, train_weights=False
+        )
 
         assert losses[-1] < losses[0]
 
