@@ -104,7 +104,9 @@ class TestConv2d:
         "input_shape,filter_shape",
         [((5, 5), (3, 3)), ((10, 10), (3, 3)), ((20, 20), (5, 5))],
     )
-    def test_output_matches_explicit_loops(self, input_shape, filter_shape):
+    def test_single_channel_output_matches_explicit_loops(
+        self, input_shape, filter_shape
+    ):
         input_ = np.random.random_sample(input_shape)
         filter_ = np.random.random_sample(filter_shape)
 
@@ -115,8 +117,13 @@ class TestConv2d:
                     i : i + filter_.shape[0], j : j + filter_.shape[1]
                 ]
                 expected_output[i][j] = np.sum(np.multiply(input_window, filter_))
+        expected_output = expected_output.reshape((1, *expected_output.shape))
 
-        assert_almost_equal(conv2d(input_, filter_), expected_output)
+        input_with_channel = input_.reshape((1, *input_shape))
+        filter_with_channel = filter_.reshape((1, 1, *filter_shape))
+        assert_almost_equal(
+            conv2d(input_with_channel, filter_with_channel), expected_output
+        )
 
 
 def _minimize_output(layer, input_, steps, learning_rate, train_weights=True):
@@ -157,14 +164,14 @@ def _minimize_output(layer, input_, steps, learning_rate, train_weights=True):
 
 class TestConv2DLayer:
     def test_output_size_is_correct(self):
-        input_size = (28, 28)
+        input_size = (1, 28, 28)
         layer = Conv2DLayer(64, (3, 3), activation=Relu(), input_size=input_size)
         layer.init_weights()
 
         assert layer.output_size == (64, 26, 26)
 
     def test_forwards_returns_correct_output_shape(self):
-        input_size = (28, 28)
+        input_size = (1, 28, 28)
         layer = Conv2DLayer(64, (3, 3), activation=Relu(), input_size=input_size)
         layer.init_weights()
         input_ = np.random.random_sample(input_size)
@@ -174,7 +181,7 @@ class TestConv2DLayer:
         assert output.shape == (64, 26, 26)
 
     def test_forwards_returns_convolution(self):
-        input_size = (28, 28)
+        input_size = (1, 28, 28)
         layer = Conv2DLayer(64, (3, 3), activation=Linear(), input_size=input_size)
         layer.init_weights()
         input_ = np.random.random_sample(input_size)
@@ -182,11 +189,11 @@ class TestConv2DLayer:
         output = layer.forwards(input_)
 
         for channel in range(64):
-            expected_output = conv2d(input_, layer.weights[channel])
-            assert_almost_equal(output[channel], expected_output)
+            expected_output = conv2d(input_, layer.weights)
+            assert_almost_equal(output, expected_output)
 
     def test_backwards_returns_weight_grad(self):
-        input_size = (28, 28)
+        input_size = (1, 28, 28)
         layer = Conv2DLayer(64, (3, 3), activation=Linear(), input_size=input_size)
         layer.init_weights()
 
@@ -201,7 +208,7 @@ class TestConv2DLayer:
         assert losses[-1] < losses[0]
 
     def test_backwards_returns_input_grad(self):
-        input_size = (28, 28)
+        input_size = (1, 28, 28)
         layer = Conv2DLayer(64, (3, 3), activation=Linear(), input_size=input_size)
         layer.init_weights()
 
@@ -214,6 +221,21 @@ class TestConv2DLayer:
         )
 
         assert losses[-1] < losses[0]
+
+    def test_can_stack_layers(self):
+        input_size = (1, 28, 28)
+        layer1 = Conv2DLayer(64, (3, 3), activation=Linear(), input_size=input_size)
+        layer1.init_weights()
+        layer2 = Conv2DLayer(32, (3, 3), activation=Linear(), input_size=layer1.output_size)
+        layer2.init_weights()
+        input_ = np.random.random_sample(input_size) * 10
+
+        layer1_output = layer1.forwards(input_)
+        layer2_output = layer2.forwards(layer1_output)
+
+        assert layer1.weights.shape == (64, 1, 3, 3)
+        assert layer2.weights.shape == (32, 64, 3, 3)
+        assert layer2_output.shape == (32, 24, 24)
 
 
 class TestFlattenLayer:

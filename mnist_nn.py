@@ -153,26 +153,53 @@ class Layer:
         return (input_grad, weight_grad, bias_grad)
 
 
-def conv2d(matrix, filter_):
+def filter_windows(input_, filter_):
     """
-    Return a 2D convolution of an input matrix with a filter.
+    Split input into slices to be multiplied with elements of a convolution filter.
 
-    This implements 2D convolution without requiring nested loops in Python,
-    which would be slow for large input matrices.
+    Returns a 5D tensor (filter_rows, filter_columns, input_channels, input_row,
+    input_col) where the first two dimensions are positions in a convolution
+    filter and the remaining dimensions are a slice of `input_` which will be
+    multiplied by that element of the filter during convolution.
 
-    Adapted from https://stackoverflow.com/questions/43086557/.
+    A convolution is normally expressed as sliding a (typically small) filter
+    over a (typically larger) input image. Another way to calculate the result
+    is to create (filter_height * filter_width) windows over the input where
+    each window is the subsection of the input that is multiplied by that filter
+    element. These windows are then multiplied by the corresponding filter
+    element and summed to produce the output.
+
+    Doing this enables convolution, weight and input gradient calculations to
+    be done with a single `np.einsum` call and fewer Python loops, which makes
+    training much faster.
     """
 
-    # Create a view on the input matrix which is a `filter_.shape`-sized grid
-    # of 2D windows, where each window contains all the elements that
-    # should be multiplied by a given filter element during convolution.
-    s = filter_.shape + tuple(np.subtract(matrix.shape, filter_.shape) + 1)
-    as_strided = np.lib.stride_tricks.as_strided
-    windows = as_strided(matrix, shape=s, strides=matrix.strides * 2)
+    _, _, filter_h, filter_w = filter_.shape
+    input_channels, input_h, input_w = input_.shape
 
-    # Multiply each window by corresponding filter element, and then sum the
-    # corresponding elements of each window.
-    return np.einsum("ij,ijkl->kl", filter_, windows)
+    window_size = (input_h - filter_h + 1, input_w - filter_w + 1)
+
+    windows = np.zeros((filter_h, filter_w, input_channels, *window_size))
+    for y in range(filter_h):
+        for x in range(filter_w):
+            windows[y][x] = input_[
+                :,
+                y : input_h - filter_h + y + 1,
+                x : input_w - filter_w + x + 1,
+            ]
+    return windows
+
+
+def conv2d(input_, filter_):
+    """
+    Return a 2D convolution of an image with a filter.
+
+    :param input_: 3D ndarray of [channel, row, column]
+    :param filter_: 4D ndarray of [output channel, input channel, row, column]
+    """
+
+    input_windows = filter_windows(input_, filter_)
+    return np.einsum("CDyx,yxDij->Cij", filter_, input_windows)
 
 
 class Conv2DLayer:
@@ -181,6 +208,13 @@ class Conv2DLayer:
     """
 
     def __init__(self, channels, filter_shape, activation, input_size=None, name=None):
+        """
+        :param channels: Number of output channels
+        :param filter_shape: Convolution kernel size
+        :param activation: Activation applied to convolution outputs
+        :param input_size: 3-tuple of (channels, rows, columns)
+        :param name: Layer name (for debugging etc.)
+        """
         self.channels = channels
         self.filter_shape = filter_shape
         self.activation = activation
@@ -190,24 +224,24 @@ class Conv2DLayer:
 
     @property
     def output_size(self):
-        output_shape = np.subtract(self.input_size, self.filter_shape) + 1
+        _, input_h, input_w = self.input_size
+        output_shape = np.subtract((input_h, input_w), self.filter_shape) + 1
         return (self.channels, *output_shape)
 
     def init_weights(self):
         assert self.input_size is not None
 
+        input_channels, *rest = self.input_size
+
         self.biases = None
-        self.weights = np.random.uniform(-0.2, 0.2, (self.channels, *self.filter_shape))
+        self.weights = np.random.uniform(
+            -0.2, 0.2, (self.channels, input_channels, *self.filter_shape)
+        )
 
     def forwards(self, inputs):
         assert inputs.shape == self.input_size
 
-        conv2d_outputs = []
-        for channel in range(self.channels):
-            conv2d_output = conv2d(inputs, self.weights[channel])
-            conv2d_outputs.append(conv2d_output)
-
-        conv2d_outputs = np.stack(conv2d_outputs, axis=0)
+        conv2d_outputs = conv2d(inputs, self.weights)
         channel_outputs = self.activation(conv2d_outputs)
 
         self.last_conv2d_outputs = conv2d_outputs
@@ -219,14 +253,12 @@ class Conv2DLayer:
         assert loss_grad.shape == self.output_size
 
         filter_w, filter_h = self.filter_shape
-        input_w, input_h = self.input_size
+        input_channels, input_w, input_h = self.input_size
 
         bias_grad = None  # Not implemented yet.
 
         # Compute gradients of activation input wrt. loss.
-        activation_grads = self.activation.gradient(
-            self.last_conv2d_outputs, loss_grad
-        )
+        activation_grads = self.activation.gradient(self.last_conv2d_outputs, loss_grad)
 
         # Compute gradient of weights wrt. loss.
         weight_grad = np.zeros(self.weights.shape)
@@ -234,33 +266,36 @@ class Conv2DLayer:
         # Compute weight gradient for each element of filter.
         # The filter is typically much smaller than the input so we get
         # more efficient vectorization than looping over windows in the input.
-        for y in range(filter_h):
-            for x in range(filter_w):
-                filter_inputs = self.last_inputs[
-                    y : input_h - filter_h + y + 1, x : input_w - filter_w + x + 1
-                ]
-                weight_grad[:, y, x] = np.einsum(
-                    "ij,Cij->C", filter_inputs, activation_grads
-                )
-                weight_grad[:, y, x] /= np.product(filter_inputs.shape)
+        input_windows = filter_windows(self.last_inputs, self.weights)
+        weight_grad = np.einsum(
+            "yxDij,Cij->CDyx", input_windows, activation_grads
+        )
+        assert weight_grad.shape == self.weights.shape
 
         if compute_input_grad:
-            # Compute gradient of inputs wrt. loss.
+            # Gradients of inputs wrt. loss.
             input_grad = np.zeros(self.input_size)
-
-            # Number of times each input position was multiplied by a weight.
-            weight_counts = np.zeros(self.input_size)
-
-            weight_grads = np.einsum("Cyx,Cij->yxij", self.weights, activation_grads)
+            # Count of weights that were multiplied by each input position.
+            # Input positions in the center of the image are multiplied by all
+            # (y, x) elements of the kernel. Positions near the edge are
+            # multiplied by fewer elements when using "valid" padding.
+            weight_counts = np.zeros((input_channels, input_h, input_w))
+            input_grads = np.einsum(
+                "CDyx,Cij->yxDij", self.weights, activation_grads
+            )
             for y in range(filter_h):
                 for x in range(filter_w):
                     input_grad_window = input_grad[
-                        y : input_h - filter_h + y + 1, x : input_w - filter_w + x + 1
+                        :,
+                        y : input_h - filter_h + y + 1,
+                        x : input_w - filter_w + x + 1,
                     ]
-                    np.copyto(input_grad_window, weight_grads[y, x])
+                    np.copyto(input_grad_window, input_grads[y, x])
 
                     weight_count_window = weight_counts[
-                        y : input_h - filter_h + y + 1, x : input_w - filter_w + x + 1
+                        :,
+                        y : input_h - filter_h + y + 1,
+                        x : input_w - filter_w + x + 1,
                     ]
                     weight_count_window += (
                         np.ones(weight_count_window.shape) * self.channels
@@ -373,7 +408,7 @@ class Model:
 
         total_errors = 0
 
-        for i, (example, label) in enumerate(batch):
+        for example, label in batch:
             target = onehot(label, max_label + 1)
             output = example
 
@@ -444,17 +479,18 @@ def train_and_test(dataset_path, model="basic"):
         # Load train and test datasets.
         print("reading data...")
         train_images, train_labels, test_images, test_labels = load_mnist_dataset(
-            dataset_path, (28, 28)
+            dataset_path, (1, 28, 28)
         )
 
         model = Model(
             layers=[
                 Conv2DLayer(32, (3, 3), activation=Relu()),
+                Conv2DLayer(8, (3, 3), activation=Relu()),
                 FlattenLayer(),
                 Layer(32, name="relu", activation=Relu()),
                 Layer(10, name="softmax", activation=Softmax()),
             ],
-            input_size=(28, 28),
+            input_size=(1, 28, 28),
         )
 
         print("training model...")
@@ -470,7 +506,7 @@ def train_and_test(dataset_path, model="basic"):
     elif model == "basic":
         input_size = (28 * 28,)
         train_images, train_labels, test_images, test_labels = load_mnist_dataset(
-            dataset_path, input_size,
+            dataset_path, input_size
         )
 
         model = Model(
