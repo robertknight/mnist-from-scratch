@@ -13,6 +13,7 @@ from mnist_nn import (
     FlattenLayer,
     Layer,
     Linear,
+    MaxPoolingLayer,
     Conv2DLayer,
     Relu,
     Softmax,
@@ -226,7 +227,9 @@ class TestConv2DLayer:
         input_size = (1, 28, 28)
         layer1 = Conv2DLayer(64, (3, 3), activation=Linear(), input_size=input_size)
         layer1.init_weights()
-        layer2 = Conv2DLayer(32, (3, 3), activation=Linear(), input_size=layer1.output_size)
+        layer2 = Conv2DLayer(
+            32, (3, 3), activation=Linear(), input_size=layer1.output_size
+        )
         layer2.init_weights()
         input_ = np.random.random_sample(input_size) * 10
 
@@ -260,3 +263,55 @@ class TestFlattenLayer:
         input_grad, *rest = layer.backwards(loss_grad)
 
         assert input_grad.shape == input_.shape
+
+
+class TestMaxPoolingLayer:
+    def test_output_size_is_correct(self):
+        layer = MaxPoolingLayer((2, 2), input_size=(32, 26, 26))
+        assert layer.output_size == (32, 13, 13)
+
+    def test_forwards_pools_input(self):
+        # nb. `fmt: off` triggers a Black bug here.
+        input_ = np.array([[1, 0, 0, 2], [0, 0, 0, 0], [0, 0, 0, 0], [3, 0, 0, 4]])
+        input_ = np.stack([input_, input_, input_])
+        layer = MaxPoolingLayer((2, 2), input_size=input_.shape)
+
+        pooled = layer.forwards(input_)
+
+        assert pooled.shape == (3, 2, 2)
+
+        for channel in range(input_.shape[0]):
+            assert_almost_equal(pooled[channel], [[1., 2], [3, 4]])
+
+    def test_backwards_routes_gradient(self):
+        # fmt: off
+        input_ = np.array([[1, 0, 0, 2],
+                           [0, 0, 0, 0],
+                           [0, 0, 0, 0],
+                           [3, 0, 0, 4]])
+        input_ = np.stack([input_, input_, input_])
+        layer = MaxPoolingLayer((2, 2), input_size=input_.shape)
+
+        layer.forwards(input_)
+        loss_grad = [[0.1, 0.2], [0.3, 0.4]]
+        loss_grad = np.stack([loss_grad, loss_grad, loss_grad])
+        input_grad, *rest = layer.backwards(loss_grad)
+
+        for channel in range(input_.shape[0]):
+            # fmt: off
+            expected_grad = [[0.1, 0.0, 0.0, 0.2],
+                             [0.0, 0.0, 0.0, 0.0],
+                             [0.0, 0.0, 0.0, 0.0],
+                             [0.3, 0.0, 0.0, 0.4]]
+            assert_almost_equal(input_grad[channel], expected_grad)
+
+    def test_supports_input_not_a_multiple_of_pool_size(self):
+        input_ = np.ones((1, 13, 13))
+        loss_grad = np.ones((1, 6, 6))
+        layer = MaxPoolingLayer((2, 2), input_size=input_.shape)
+
+        output = layer.forwards(input_)
+        grad, *rest = layer.backwards(loss_grad)
+
+        assert output.shape == loss_grad.shape
+        assert grad.shape == input_.shape

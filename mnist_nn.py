@@ -327,6 +327,61 @@ class FlattenLayer:
         return (loss_grad.reshape(self.input_size), None, None)
 
 
+class MaxPoolingLayer:
+    def __init__(self, window_size=(2, 2), input_size=None):
+        self.input_size = input_size
+        self.biases = None
+        self.weights = None
+        self.window_size = window_size
+
+    @property
+    def output_size(self):
+        channels, width, height = self.input_size
+        pool_width, pool_height = self.window_size
+
+        return (channels, width // pool_width, height // pool_height)
+
+    def init_weights(self):
+        pass
+
+    def forwards(self, inputs):
+        pool_width, pool_height = self.window_size
+        output = np.zeros(self.output_size)
+        _, output_h, output_w = self.output_size
+
+        for h in range(pool_height):
+            for w in range(pool_width):
+                pool_view = inputs[:, h::pool_height, w::pool_width]
+                pool_view = self._clip_to_output_size(pool_view)
+                output = np.maximum(output, pool_view)
+
+        self.last_inputs = inputs
+        self.last_output = output
+
+        return output
+
+    def backwards(self, loss_grad, compute_input_grad=True):
+        pool_width, pool_height = self.window_size
+        _, output_h, output_w = self.output_size
+
+        input_grad = np.zeros(self.input_size)
+
+        for h in range(pool_height):
+            for w in range(pool_width):
+                input_view = self.last_inputs[:, h::pool_height, w::pool_width]
+                input_view = self._clip_to_output_size(input_view)
+                input_grad_view = input_grad[:, h::pool_height, w::pool_width]
+                input_grad_view = self._clip_to_output_size(input_grad_view)
+                mask = np.equal(input_view, self.last_output)
+                np.copyto(input_grad_view, loss_grad, where=mask)
+
+        return (input_grad, None, None)
+
+    def _clip_to_output_size(self, array):
+        _, output_h, output_w = self.output_size
+        return array[:, :output_h, :output_w]
+
+
 class Model:
     """
     Simple neural network model consisting of a stack of layers.
