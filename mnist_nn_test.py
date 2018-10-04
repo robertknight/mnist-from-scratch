@@ -284,11 +284,7 @@ class TestMaxPoolingLayer:
             assert_almost_equal(pooled[channel], [[1., 2], [3, 4]])
 
     def test_backwards_routes_gradient(self):
-        # fmt: off
-        input_ = np.array([[1, 0, 0, 2],
-                           [0, 0, 0, 0],
-                           [0, 0, 0, 0],
-                           [3, 0, 0, 4]])
+        input_ = np.array([[1, 0, 0, 2], [0, 0, 0, 0], [0, 0, 0, 0], [3, 0, 0, 4]])
         input_ = np.stack([input_, input_, input_])
         layer = MaxPoolingLayer((2, 2), input_size=input_.shape)
 
@@ -298,11 +294,12 @@ class TestMaxPoolingLayer:
         input_grad, *rest = layer.backwards(loss_grad)
 
         for channel in range(input_.shape[0]):
-            # fmt: off
-            expected_grad = [[0.1, 0.0, 0.0, 0.2],
-                             [0.0, 0.0, 0.0, 0.0],
-                             [0.0, 0.0, 0.0, 0.0],
-                             [0.3, 0.0, 0.0, 0.4]]
+            expected_grad = [
+                [0.1, 0.0, 0.0, 0.2],
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+                [0.3, 0.0, 0.0, 0.4],
+            ]
             assert_almost_equal(input_grad[channel], expected_grad)
 
     def test_supports_input_not_a_multiple_of_pool_size(self):

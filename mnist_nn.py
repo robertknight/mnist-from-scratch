@@ -183,9 +183,7 @@ def filter_windows(input_, filter_):
     for y in range(filter_h):
         for x in range(filter_w):
             windows[y][x] = input_[
-                :,
-                y : input_h - filter_h + y + 1,
-                x : input_w - filter_w + x + 1,
+                :, y : input_h - filter_h + y + 1, x : input_w - filter_w + x + 1
             ]
     return windows
 
@@ -267,9 +265,7 @@ class Conv2DLayer:
         # The filter is typically much smaller than the input so we get
         # more efficient vectorization than looping over windows in the input.
         input_windows = filter_windows(self.last_inputs, self.weights)
-        weight_grad = np.einsum(
-            "yxDij,Cij->CDyx", input_windows, activation_grads
-        )
+        weight_grad = np.einsum("yxDij,Cij->CDyx", input_windows, activation_grads)
         assert weight_grad.shape == self.weights.shape
 
         if compute_input_grad:
@@ -280,9 +276,7 @@ class Conv2DLayer:
             # (y, x) elements of the kernel. Positions near the edge are
             # multiplied by fewer elements when using "valid" padding.
             weight_counts = np.zeros((input_channels, input_h, input_w))
-            input_grads = np.einsum(
-                "CDyx,Cij->yxDij", self.weights, activation_grads
-            )
+            input_grads = np.einsum("CDyx,Cij->yxDij", self.weights, activation_grads)
             for y in range(filter_h):
                 for x in range(filter_w):
                     input_grad_window = input_grad[
