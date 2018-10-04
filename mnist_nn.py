@@ -540,9 +540,11 @@ def train_and_test(dataset_path, model="basic"):
         model = Model(
             layers=[
                 Conv2DLayer(32, (3, 3), activation=Relu()),
-                Conv2DLayer(8, (3, 3), activation=Relu()),
+                MaxPoolingLayer((2, 2)),
+                Conv2DLayer(32, (3, 3), activation=Relu()),
+                MaxPoolingLayer((2, 2)),
                 FlattenLayer(),
-                Layer(32, name="relu", activation=Relu()),
+                Layer(64, name="relu", activation=Relu()),
                 Layer(10, name="softmax", activation=Softmax()),
             ],
             input_size=(1, 28, 28),
@@ -578,7 +580,7 @@ def train_and_test(dataset_path, model="basic"):
             train_labels,
             batch_size=32,
             epochs=10,
-            learning_rate=0.15,
+            learning_rate=0.18,
             learning_rate_decay=0.1,
             loss_op=CategoricalCrossentropy(),
         )

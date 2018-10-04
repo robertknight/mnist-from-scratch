@@ -30,7 +30,7 @@ python mnist_{algorithm}.py data/{classic, fashion}
 
 File | Description | Test accuracy (classic MNIST) | Test accuracy (fashion MNIST)
 --- | --- | --- | ---
+`mnist_nn.py -m conv2d` | Simple convolutional neural network. | ~0.99 | ~0.89
 `mnist_nn.py -m basic` | 2-layer neural network using ReLU and softmax layers. | ~0.97 | ~0.86
-`mnist_nn.py -m conv2d` | Simple convolutional neural network. | ~0.98 | ~0.88
 `mnist_logistic_regression.py` | Binary logistic regression using 1-vs-n to handle multi-class classification. | ~0.90 | ~0.82
 `mnist_bayes.py` | Multi-class naive bayes. | ~0.83 | ~0.68
