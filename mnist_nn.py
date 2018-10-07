@@ -3,6 +3,7 @@ MNIST handwritten digit classifier neural net.
 """
 
 import argparse
+from enum import Enum
 import random
 import time
 
@@ -200,12 +201,25 @@ def conv2d(input_, filter_):
     return np.einsum("CDyx,yxDij->Cij", filter_, input_windows)
 
 
+class Padding(Enum):
+    VALID = 0
+    SAME = 1
+
+
 class Conv2DLayer:
     """
     A 2D convolution layer.
     """
 
-    def __init__(self, channels, filter_shape, activation, input_size=None, name=None):
+    def __init__(
+        self,
+        channels,
+        filter_shape,
+        activation,
+        padding=Padding.VALID,
+        input_size=None,
+        name=None,
+    ):
         """
         :param channels: Number of output channels
         :param filter_shape: Convolution kernel size
@@ -219,11 +233,15 @@ class Conv2DLayer:
         self.input_size = input_size
         self.biases = None
         self.name = name
+        self.padding = padding
 
     @property
     def output_size(self):
         _, input_h, input_w = self.input_size
-        output_shape = np.subtract((input_h, input_w), self.filter_shape) + 1
+        if self.padding == Padding.VALID:
+            output_shape = np.subtract((input_h, input_w), self.filter_shape) + 1
+        else:
+            output_shape = (input_h, input_w)
         return (self.channels, *output_shape)
 
     def init_weights(self):
@@ -239,6 +257,13 @@ class Conv2DLayer:
     def forwards(self, inputs):
         assert inputs.shape == self.input_size
 
+        if self.padding == Padding.SAME:
+            vpad = self.filter_shape[0] // 2
+            hpad = self.filter_shape[1] // 2
+            inputs = np.pad(
+                inputs, pad_width=((0, 0), (vpad, vpad), (hpad, hpad)), mode="constant"
+            )
+
         conv2d_outputs = conv2d(inputs, self.weights)
         channel_outputs = self.activation(conv2d_outputs)
 
@@ -251,7 +276,15 @@ class Conv2DLayer:
         assert loss_grad.shape == self.output_size
 
         filter_w, filter_h = self.filter_shape
-        input_channels, input_w, input_h = self.input_size
+        if self.padding == Padding.SAME:
+            vpad = self.filter_shape[0] // 2
+            hpad = self.filter_shape[1] // 2
+            padded_input_size = np.add(self.input_size, (0, vpad * 2, hpad * 2))
+        else:
+            vpad = None
+            hpad = None
+            padded_input_size = self.input_size
+        input_channels, input_w, input_h = padded_input_size
 
         bias_grad = None  # Not implemented yet.
 
@@ -270,7 +303,7 @@ class Conv2DLayer:
 
         if compute_input_grad:
             # Gradients of inputs wrt. loss.
-            input_grad = np.zeros(self.input_size)
+            input_grad = np.zeros(padded_input_size)
             # Count of weights that were multiplied by each input position.
             # Input positions in the center of the image are multiplied by all
             # (y, x) elements of the kernel. Positions near the edge are
@@ -297,6 +330,9 @@ class Conv2DLayer:
             input_grad /= weight_counts
         else:
             input_grad = None
+
+        if self.padding == Padding.SAME:
+            input_grad = input_grad[:, vpad:-vpad, hpad:-hpad]
 
         return (input_grad, weight_grad, bias_grad)
 

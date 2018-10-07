@@ -16,6 +16,7 @@ from mnist_nn import (
     MaxPoolingLayer,
     Conv2DLayer,
     Relu,
+    Padding,
     Softmax,
     conv2d,
     onehot,
@@ -171,15 +172,32 @@ class TestConv2DLayer:
 
         assert layer.output_size == (64, 26, 26)
 
-    def test_forwards_returns_correct_output_shape(self):
+    def test_output_size_is_correct_with_same_padding(self):
         input_size = (1, 28, 28)
-        layer = Conv2DLayer(64, (3, 3), activation=Relu(), input_size=input_size)
+        layer = Conv2DLayer(
+            64, (3, 3), activation=Relu(), padding=Padding.SAME, input_size=input_size
+        )
+        layer.init_weights()
+
+        assert layer.output_size == (64, 28, 28)
+
+    @pytest.mark.parametrize(
+        "padding,expected_output_shape",
+        [(Padding.VALID, (64, 26, 26)), (Padding.SAME, (64, 28, 28))],
+    )
+    def test_forwards_returns_correct_output_shape(
+        self, padding, expected_output_shape
+    ):
+        input_size = (1, 28, 28)
+        layer = Conv2DLayer(
+            64, (3, 3), activation=Relu(), padding=padding, input_size=input_size
+        )
         layer.init_weights()
         input_ = np.random.random_sample(input_size)
 
         output = layer.forwards(input_)
 
-        assert output.shape == (64, 26, 26)
+        assert output.shape == expected_output_shape
 
     def test_forwards_returns_convolution(self):
         input_size = (1, 28, 28)
@@ -208,9 +226,12 @@ class TestConv2DLayer:
 
         assert losses[-1] < losses[0]
 
-    def test_backwards_returns_input_grad(self):
+    @pytest.mark.parametrize("padding", [Padding.VALID, Padding.SAME])
+    def test_backwards_returns_input_grad(self, padding):
         input_size = (1, 28, 28)
-        layer = Conv2DLayer(64, (3, 3), activation=Linear(), input_size=input_size)
+        layer = Conv2DLayer(
+            64, (3, 3), activation=Linear(), padding=padding, input_size=input_size
+        )
         layer.init_weights()
 
         # FIXME: If the initial loss happens to be small, the learning rate may
@@ -223,9 +244,12 @@ class TestConv2DLayer:
 
         assert losses[-1] < losses[0]
 
-    def test_can_stack_layers(self):
+    @pytest.mark.parametrize("padding", [Padding.VALID, Padding.SAME])
+    def test_can_stack_layers(self, padding):
         input_size = (1, 28, 28)
-        layer1 = Conv2DLayer(64, (3, 3), activation=Linear(), input_size=input_size)
+        layer1 = Conv2DLayer(
+            64, (3, 3), activation=Linear(), padding=padding, input_size=input_size
+        )
         layer1.init_weights()
         layer2 = Conv2DLayer(
             32, (3, 3), activation=Linear(), input_size=layer1.output_size
@@ -238,7 +262,7 @@ class TestConv2DLayer:
 
         assert layer1.weights.shape == (64, 1, 3, 3)
         assert layer2.weights.shape == (32, 64, 3, 3)
-        assert layer2_output.shape == (32, 24, 24)
+        assert layer2_output.shape == layer2.output_size
 
 
 class TestFlattenLayer:
