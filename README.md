@@ -1,4 +1,4 @@
-# mnist-from-scratch
+# neuralnet-from-scratch
 
 An implementation of a neural network and a few basic machine learning
 algorithms "from scratch" using Python and numpy (ie. not using an existing
