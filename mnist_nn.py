@@ -126,24 +126,27 @@ class Layer:
         self.weights = np.random.uniform(-0.2, 0.2, (self.unit_count, *self.input_size))
         self.biases = np.zeros(self.unit_count)
 
-    def forwards(self, inputs):
+    def forwards(self, inputs, context):
         z = np.dot(self.weights, inputs) + self.biases
-        self.last_inputs = inputs
-        self.last_z = z
+        context["inputs"] = inputs
+        context["z"] = z
         return self.activation(z)
 
-    def backwards(self, loss_grad, compute_input_grad=True):
+    def backwards(self, loss_grad, context, compute_input_grad=True):
         """
         Compute the gradients with respect to the loss against a training example.
 
         :param loss_grad: Gradient of loss wrt. each of this layer's outputs
         :return: 2-tuple of gradient of inputs and weights wrt. loss.
         """
-        z_grad = self.activation.gradient(self.last_z, loss_grad)
+        last_z = context["z"]
+        last_inputs = context["inputs"]
+
+        z_grad = self.activation.gradient(last_z, loss_grad)
         bias_grad = z_grad
         weight_grad = np.matmul(
             z_grad.reshape((self.unit_count, 1)),
-            self.last_inputs.reshape((1, *self.input_size)),
+            last_inputs.reshape((1, *self.input_size)),
         )
 
         if compute_input_grad:
@@ -254,7 +257,7 @@ class Conv2DLayer:
             -0.2, 0.2, (self.channels, input_channels, *self.filter_shape)
         )
 
-    def forwards(self, inputs):
+    def forwards(self, inputs, context):
         assert inputs.shape == self.input_size
 
         if self.padding == Padding.SAME:
@@ -267,12 +270,12 @@ class Conv2DLayer:
         conv2d_outputs = conv2d(inputs, self.weights)
         channel_outputs = self.activation(conv2d_outputs)
 
-        self.last_conv2d_outputs = conv2d_outputs
-        self.last_inputs = inputs
+        context["inputs"] = inputs
+        context["conv2d_outputs"] = conv2d_outputs
 
         return channel_outputs
 
-    def backwards(self, loss_grad, compute_input_grad=True):
+    def backwards(self, loss_grad, context, compute_input_grad=True):
         assert loss_grad.shape == self.output_size
 
         filter_w, filter_h = self.filter_shape
@@ -288,8 +291,11 @@ class Conv2DLayer:
 
         bias_grad = None  # Not implemented yet.
 
+        last_conv2d_outputs = context["conv2d_outputs"]
+        last_inputs = context["inputs"]
+
         # Compute gradients of activation input wrt. loss.
-        activation_grads = self.activation.gradient(self.last_conv2d_outputs, loss_grad)
+        activation_grads = self.activation.gradient(last_conv2d_outputs, loss_grad)
 
         # Compute gradient of weights wrt. loss.
         weight_grad = np.zeros(self.weights.shape)
@@ -297,7 +303,7 @@ class Conv2DLayer:
         # Compute weight gradient for each element of filter.
         # The filter is typically much smaller than the input so we get
         # more efficient vectorization than looping over windows in the input.
-        input_windows = filter_windows(self.last_inputs, self.weights)
+        input_windows = filter_windows(last_inputs, self.weights)
         weight_grad = np.einsum("yxDij,Cij->CDyx", input_windows, activation_grads)
         assert weight_grad.shape == self.weights.shape
 
@@ -350,10 +356,10 @@ class FlattenLayer:
     def init_weights(self):
         pass
 
-    def forwards(self, inputs):
+    def forwards(self, inputs, context):
         return inputs.flatten()
 
-    def backwards(self, loss_grad, compute_input_grad=True):
+    def backwards(self, loss_grad, context, compute_input_grad=True):
         return (loss_grad.reshape(self.input_size), None, None)
 
 
@@ -374,7 +380,7 @@ class MaxPoolingLayer:
     def init_weights(self):
         pass
 
-    def forwards(self, inputs):
+    def forwards(self, inputs, context):
         pool_width, pool_height = self.window_size
         output = np.zeros(self.output_size)
         _, output_h, output_w = self.output_size
@@ -385,24 +391,26 @@ class MaxPoolingLayer:
                 pool_view = self._clip_to_output_size(pool_view)
                 output = np.maximum(output, pool_view)
 
-        self.last_inputs = inputs
-        self.last_output = output
+        context["inputs"] = inputs
+        context["output"] = output
 
         return output
 
-    def backwards(self, loss_grad, compute_input_grad=True):
+    def backwards(self, loss_grad, context, compute_input_grad=True):
         pool_width, pool_height = self.window_size
         _, output_h, output_w = self.output_size
+        last_inputs = context["inputs"]
+        last_output = context["output"]
 
         input_grad = np.zeros(self.input_size)
 
         for h in range(pool_height):
             for w in range(pool_width):
-                input_view = self.last_inputs[:, h::pool_height, w::pool_width]
+                input_view = last_inputs[:, h::pool_height, w::pool_width]
                 input_view = self._clip_to_output_size(input_view)
                 input_grad_view = input_grad[:, h::pool_height, w::pool_width]
                 input_grad_view = self._clip_to_output_size(input_grad_view)
-                mask = np.equal(input_view, self.last_output)
+                mask = np.equal(input_view, last_output)
                 np.copyto(input_grad_view, loss_grad, where=mask)
 
         return (input_grad, None, None)
@@ -496,9 +504,11 @@ class Model:
         for example, label in batch:
             target = onehot(label, max_label + 1)
             output = example
+            context = {}
 
             for layer in self.layers:
-                output = layer.forwards(output)
+                context[layer] = {}
+                output = layer.forwards(output, context[layer])
 
             predicted = np.argmax(output)
             if predicted != label:
@@ -508,7 +518,7 @@ class Model:
             for layer in reversed(self.layers):
                 compute_input_grad = layer != self.layers[0]
                 input_grad, weight_grad, bias_grad = layer.backwards(
-                    input_grad, compute_input_grad=compute_input_grad
+                    input_grad, context[layer], compute_input_grad=compute_input_grad
                 )
 
                 if layer.weights is not None:

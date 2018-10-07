@@ -78,7 +78,7 @@ class TestLayer:
         layer.init_weights()
 
         inputs = np.array([1, 2])
-        output = layer.forwards(inputs)
+        output = layer.forwards(inputs, context={})
 
         assert_almost_equal(output, activation(np.dot(layer.weights, inputs)))
 
@@ -94,8 +94,9 @@ class TestLayer:
         inputs = np.array([1.0, 2.0])
 
         for _ in range(0, 100):
-            output = layer.forwards(inputs)
-            _, weight_grad, _ = layer.backwards(dummy_loss(output))
+            context = {}
+            output = layer.forwards(inputs, context)
+            _, weight_grad, _ = layer.backwards(dummy_loss(output), context)
             layer.weights = layer.weights - weight_grad * 0.01
 
         assert_almost_equal(output, 0.0)
@@ -142,14 +143,14 @@ def _minimize_output(layer, input_, steps, learning_rate, train_weights=True):
     channels = layer.weights.shape[0]
 
     for step in range(steps):
-        output = layer.forwards(input_)
+        context = {}
+        output = layer.forwards(input_, context)
         loss = abs(np.sum(output))
         losses.append(loss)
         loss_grad = np.sign(output)
 
-        layer.forwards(input_)
         input_grad, weight_grad, _ = layer.backwards(
-            loss_grad, compute_input_grad=not train_weights
+            loss_grad, context, compute_input_grad=not train_weights
         )
         assert weight_grad.shape == layer.weights.shape
 
@@ -195,7 +196,7 @@ class TestConv2DLayer:
         layer.init_weights()
         input_ = np.random.random_sample(input_size)
 
-        output = layer.forwards(input_)
+        output = layer.forwards(input_, context={})
 
         assert output.shape == expected_output_shape
 
@@ -205,7 +206,7 @@ class TestConv2DLayer:
         layer.init_weights()
         input_ = np.random.random_sample(input_size)
 
-        output = layer.forwards(input_)
+        output = layer.forwards(input_, context={})
 
         for channel in range(64):
             expected_output = conv2d(input_, layer.weights)
@@ -257,8 +258,8 @@ class TestConv2DLayer:
         layer2.init_weights()
         input_ = np.random.random_sample(input_size) * 10
 
-        layer1_output = layer1.forwards(input_)
-        layer2_output = layer2.forwards(layer1_output)
+        layer1_output = layer1.forwards(input_, context={})
+        layer2_output = layer2.forwards(layer1_output, context={})
 
         assert layer1.weights.shape == (64, 1, 3, 3)
         assert layer2.weights.shape == (32, 64, 3, 3)
@@ -275,7 +276,7 @@ class TestFlattenLayer:
         layer = FlattenLayer(input_size=input_size)
         input_ = np.random.random_sample(input_size)
 
-        assert layer.forwards(input_).shape == (26 * 26 * 3,)
+        assert layer.forwards(input_, context={}).shape == (26 * 26 * 3,)
 
     def test_backwards_reshapes_grad(self):
         input_size = (26, 26, 3)
@@ -283,8 +284,9 @@ class TestFlattenLayer:
         input_ = np.random.random_sample(input_size)
         loss_grad = np.random.random_sample(layer.output_size)
 
-        layer.forwards(input_)
-        input_grad, *rest = layer.backwards(loss_grad)
+        context = {}
+        layer.forwards(input_, context)
+        input_grad, *rest = layer.backwards(loss_grad, context)
 
         assert input_grad.shape == input_.shape
 
@@ -300,7 +302,7 @@ class TestMaxPoolingLayer:
         input_ = np.stack([input_, input_, input_])
         layer = MaxPoolingLayer((2, 2), input_size=input_.shape)
 
-        pooled = layer.forwards(input_)
+        pooled = layer.forwards(input_, context={})
 
         assert pooled.shape == (3, 2, 2)
 
@@ -312,10 +314,11 @@ class TestMaxPoolingLayer:
         input_ = np.stack([input_, input_, input_])
         layer = MaxPoolingLayer((2, 2), input_size=input_.shape)
 
-        layer.forwards(input_)
+        context = {}
+        layer.forwards(input_, context)
         loss_grad = [[0.1, 0.2], [0.3, 0.4]]
         loss_grad = np.stack([loss_grad, loss_grad, loss_grad])
-        input_grad, *rest = layer.backwards(loss_grad)
+        input_grad, *rest = layer.backwards(loss_grad, context)
 
         for channel in range(input_.shape[0]):
             expected_grad = [
@@ -331,8 +334,9 @@ class TestMaxPoolingLayer:
         loss_grad = np.ones((1, 6, 6))
         layer = MaxPoolingLayer((2, 2), input_size=input_.shape)
 
-        output = layer.forwards(input_)
-        grad, *rest = layer.backwards(loss_grad)
+        context = {}
+        output = layer.forwards(input_, context)
+        grad, *rest = layer.backwards(loss_grad, context)
 
         assert output.shape == loss_grad.shape
         assert grad.shape == input_.shape
