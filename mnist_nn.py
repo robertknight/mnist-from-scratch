@@ -3,7 +3,9 @@ MNIST handwritten digit classifier neural net.
 """
 
 import argparse
+import concurrent.futures as futures
 from enum import Enum
+from multiprocessing import cpu_count
 import random
 import time
 
@@ -445,6 +447,8 @@ class Model:
             else:
                 layers[i].input_size = layers[i - 1].output_size
 
+        self.executor = futures.ThreadPoolExecutor(max_workers=cpu_count())
+
     def fit(
         self,
         data,
@@ -511,7 +515,7 @@ class Model:
 
         total_errors = 0
 
-        for example, label in batch:
+        def fit_example(example, label):
             target = onehot(label, max_label + 1)
             output = example
             context = {}
@@ -526,6 +530,7 @@ class Model:
 
             predicted = np.argmax(output)
             if predicted != label:
+                nonlocal total_errors
                 total_errors += 1
 
             input_grad = loss_op.gradient(target, output)
@@ -539,6 +544,12 @@ class Model:
                     sum_weight_grads[layer] += weight_grad
                 if layer.biases is not None:
                     sum_bias_grads[layer] += bias_grad
+
+        tasks = [
+            self.executor.submit(fit_example, example, label)
+            for example, label in batch
+        ]
+        futures.wait(tasks)
 
         for layer, sum_weight_grad in sum_weight_grads.items():
             if layer.weights is None:
