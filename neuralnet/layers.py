@@ -2,6 +2,8 @@ from enum import Enum
 
 import numpy as np
 
+from .util import float_type
+
 
 class Layer:
     """
@@ -26,8 +28,8 @@ class Layer:
 
         self.weights = np.random.uniform(
             -0.2, 0.2, (self.unit_count, *self.input_size)
-        ).astype(np.float32)
-        self.biases = np.zeros(self.unit_count, dtype=np.float32)
+        ).astype(float_type)
+        self.biases = np.zeros(self.unit_count, dtype=float_type)
 
     def forwards(self, inputs, context):
         z = np.dot(self.weights, inputs) + self.biases
@@ -87,7 +89,7 @@ def filter_windows(input_, filter_):
     window_size = (input_h - filter_h + 1, input_w - filter_w + 1)
 
     windows = np.zeros(
-        (filter_h, filter_w, input_channels, *window_size), dtype=np.float32
+        (filter_h, filter_w, input_channels, *window_size), dtype=float_type
     )
     for y in range(filter_h):
         for x in range(filter_w):
@@ -160,7 +162,7 @@ class Conv2DLayer:
         self.biases = None
         self.weights = np.random.uniform(
             -0.2, 0.2, (self.channels, input_channels, *self.filter_shape)
-        ).astype(np.float32)
+        ).astype(float_type)
 
     def forwards(self, inputs, context):
         assert inputs.shape == self.input_size
@@ -203,7 +205,7 @@ class Conv2DLayer:
         activation_grads = self.activation.gradient(last_conv2d_outputs, loss_grad)
 
         # Compute gradient of weights wrt. loss.
-        weight_grad = np.zeros(self.weights.shape, np.float32)
+        weight_grad = np.zeros(self.weights.shape, float_type)
 
         # Compute weight gradient for each element of filter.
         # The filter is typically much smaller than the input so we get
@@ -214,12 +216,12 @@ class Conv2DLayer:
 
         if compute_input_grad:
             # Gradients of inputs wrt. loss.
-            input_grad = np.zeros(padded_input_size, np.float32)
+            input_grad = np.zeros(padded_input_size, float_type)
             # Count of weights that were multiplied by each input position.
             # Input positions in the center of the image are multiplied by all
             # (y, x) elements of the kernel. Positions near the edge are
             # multiplied by fewer elements when using "valid" padding.
-            weight_counts = np.zeros((input_channels, input_h, input_w), np.float32)
+            weight_counts = np.zeros((input_channels, input_h, input_w), float_type)
             input_grads = np.einsum("CDyx,Cij->yxDij", self.weights, activation_grads)
             for y in range(filter_h):
                 for x in range(filter_w):
@@ -236,7 +238,7 @@ class Conv2DLayer:
                         x : input_w - filter_w + x + 1,
                     ]
                     weight_count_window += (
-                        np.ones(weight_count_window.shape, dtype=np.float32)
+                        np.ones(weight_count_window.shape, dtype=float_type)
                         * self.channels
                     )
             input_grad /= weight_counts
@@ -288,7 +290,7 @@ class MaxPoolingLayer:
 
     def forwards(self, inputs, context):
         pool_width, pool_height = self.window_size
-        output = np.zeros(self.output_size, np.float32)
+        output = np.zeros(self.output_size, float_type)
         _, output_h, output_w = self.output_size
 
         for h in range(pool_height):
@@ -308,7 +310,7 @@ class MaxPoolingLayer:
         last_inputs = context["inputs"]
         last_output = context["output"]
 
-        input_grad = np.zeros(self.input_size, np.float32)
+        input_grad = np.zeros(self.input_size, float_type)
 
         for h in range(pool_height):
             for w in range(pool_width):

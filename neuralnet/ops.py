@@ -1,6 +1,6 @@
 import numpy as np
 
-from .util import EPSILON
+from .util import EPSILON, float_type
 
 
 class CategoricalCrossentropy:
@@ -34,7 +34,9 @@ class Relu:
     def gradient(self, x, grads):
         return (
             np.where(
-                x >= 0.0, np.array(1.0, dtype="float32"), np.array(0.0, dtype="float32")
+                x >= 0.0,
+                np.array(1.0, dtype=float_type),
+                np.array(0.0, dtype=float_type),
             )
             * grads
         )

@@ -4,7 +4,7 @@ import time
 
 import numpy as np
 
-from .util import onehot, shuffle_examples
+from .util import float_type, onehot, shuffle_examples
 
 
 class ProgressReporter:
@@ -63,6 +63,8 @@ class Model:
         """Learn parameters given input training `data` and target `labels`."""
 
         data, labels = shuffle_examples(data, labels)
+        data = [example.astype(float_type) for example in data]
+
         reporter = self.progress_reporter
 
         # Reset model.
@@ -109,9 +111,9 @@ class Model:
 
         for layer in self.layers:
             if layer.weights is not None:
-                sum_weight_grads[layer] = np.zeros(layer.weights.shape, np.float32)
+                sum_weight_grads[layer] = np.zeros(layer.weights.shape, float_type)
             if layer.biases is not None:
-                sum_bias_grads[layer] = np.zeros(layer.biases.shape, np.float32)
+                sum_bias_grads[layer] = np.zeros(layer.biases.shape, float_type)
 
         total_errors = 0
 
@@ -124,9 +126,8 @@ class Model:
                 context[layer] = {}
                 output = layer.forwards(output, context[layer])
 
-            # Make sure that all of the calculations produced single-precision
-            # results.
-            assert output.dtype == np.float32
+            # Make sure that all of the calculations used the expected precision.
+            assert output.dtype == float_type
 
             predicted = np.argmax(output)
             if predicted != label:

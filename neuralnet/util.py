@@ -6,9 +6,14 @@ Just-above-zero value used to avoid zero in places where that would cause undefi
 """
 EPSILON = 1e-7
 
+"""
+Default float type for weighs, biases, input data etc. in the network.
+"""
+float_type = np.float32
+
 
 def onehot(x, length):
-    xs = np.zeros(length, dtype=np.float32)
+    xs = np.zeros(length, dtype=float_type)
     xs[x] = 1.0
     return xs
 

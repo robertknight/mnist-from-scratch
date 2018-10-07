@@ -53,6 +53,6 @@ class TestModel:
     def generate_data(self):
         def gen(mean):
             # Generate an easily classified data sample.
-            return np.random.normal(mean, 0.1, (5,)).astype(np.float32)
+            return np.random.normal(mean, 0.1, (5,))
 
         return gen
