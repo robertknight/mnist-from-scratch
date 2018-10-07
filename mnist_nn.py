@@ -549,7 +549,9 @@ class Model:
             self.executor.submit(fit_example, example, label)
             for example, label in batch
         ]
-        futures.wait(tasks)
+        done, *rest = futures.wait(tasks)
+        # Re-raise any exceptions
+        [task.result() for task in done]
 
         for layer, sum_weight_grad in sum_weight_grads.items():
             if layer.weights is None:
@@ -573,7 +575,7 @@ class Model:
         """
         output = features
         for layer in self.layers:
-            output = layer.forwards(output)
+            output = layer.forwards(output, context={})
         return np.argmax(output)
 
     def evaluate(self, data, target_labels):
