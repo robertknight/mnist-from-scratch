@@ -18,7 +18,7 @@ EPSILON = 1e-7
 
 
 def onehot(x, length):
-    xs = np.zeros(length)
+    xs = np.zeros(length, dtype=np.float32)
     xs[x] = 1.0
     return xs
 
@@ -58,7 +58,12 @@ class Relu:
         return np.maximum(0.0, x)
 
     def gradient(self, x, grads):
-        return np.where(x >= 0.0, 1.0, 0.0) * grads
+        return (
+            np.where(
+                x >= 0.0, np.array(1.0, dtype="float32"), np.array(0.0, dtype="float32")
+            )
+            * grads
+        )
 
 
 class Softmax:
@@ -123,8 +128,10 @@ class Layer:
         assert self.input_size is not None
         assert len(self.input_size) == 1
 
-        self.weights = np.random.uniform(-0.2, 0.2, (self.unit_count, *self.input_size))
-        self.biases = np.zeros(self.unit_count)
+        self.weights = np.random.uniform(
+            -0.2, 0.2, (self.unit_count, *self.input_size)
+        ).astype(np.float32)
+        self.biases = np.zeros(self.unit_count, dtype=np.float32)
 
     def forwards(self, inputs, context):
         z = np.dot(self.weights, inputs) + self.biases
@@ -183,7 +190,9 @@ def filter_windows(input_, filter_):
 
     window_size = (input_h - filter_h + 1, input_w - filter_w + 1)
 
-    windows = np.zeros((filter_h, filter_w, input_channels, *window_size))
+    windows = np.zeros(
+        (filter_h, filter_w, input_channels, *window_size), dtype=np.float32
+    )
     for y in range(filter_h):
         for x in range(filter_w):
             windows[y][x] = input_[
@@ -255,7 +264,7 @@ class Conv2DLayer:
         self.biases = None
         self.weights = np.random.uniform(
             -0.2, 0.2, (self.channels, input_channels, *self.filter_shape)
-        )
+        ).astype(np.float32)
 
     def forwards(self, inputs, context):
         assert inputs.shape == self.input_size
@@ -298,7 +307,7 @@ class Conv2DLayer:
         activation_grads = self.activation.gradient(last_conv2d_outputs, loss_grad)
 
         # Compute gradient of weights wrt. loss.
-        weight_grad = np.zeros(self.weights.shape)
+        weight_grad = np.zeros(self.weights.shape, np.float32)
 
         # Compute weight gradient for each element of filter.
         # The filter is typically much smaller than the input so we get
@@ -309,12 +318,12 @@ class Conv2DLayer:
 
         if compute_input_grad:
             # Gradients of inputs wrt. loss.
-            input_grad = np.zeros(padded_input_size)
+            input_grad = np.zeros(padded_input_size, np.float32)
             # Count of weights that were multiplied by each input position.
             # Input positions in the center of the image are multiplied by all
             # (y, x) elements of the kernel. Positions near the edge are
             # multiplied by fewer elements when using "valid" padding.
-            weight_counts = np.zeros((input_channels, input_h, input_w))
+            weight_counts = np.zeros((input_channels, input_h, input_w), np.float32)
             input_grads = np.einsum("CDyx,Cij->yxDij", self.weights, activation_grads)
             for y in range(filter_h):
                 for x in range(filter_w):
@@ -331,7 +340,8 @@ class Conv2DLayer:
                         x : input_w - filter_w + x + 1,
                     ]
                     weight_count_window += (
-                        np.ones(weight_count_window.shape) * self.channels
+                        np.ones(weight_count_window.shape, dtype=np.float32)
+                        * self.channels
                     )
             input_grad /= weight_counts
         else:
@@ -382,7 +392,7 @@ class MaxPoolingLayer:
 
     def forwards(self, inputs, context):
         pool_width, pool_height = self.window_size
-        output = np.zeros(self.output_size)
+        output = np.zeros(self.output_size, np.float32)
         _, output_h, output_w = self.output_size
 
         for h in range(pool_height):
@@ -402,7 +412,7 @@ class MaxPoolingLayer:
         last_inputs = context["inputs"]
         last_output = context["output"]
 
-        input_grad = np.zeros(self.input_size)
+        input_grad = np.zeros(self.input_size, np.float32)
 
         for h in range(pool_height):
             for w in range(pool_width):
@@ -495,9 +505,9 @@ class Model:
 
         for layer in self.layers:
             if layer.weights is not None:
-                sum_weight_grads[layer] = np.zeros(layer.weights.shape)
+                sum_weight_grads[layer] = np.zeros(layer.weights.shape, np.float32)
             if layer.biases is not None:
-                sum_bias_grads[layer] = np.zeros(layer.biases.shape)
+                sum_bias_grads[layer] = np.zeros(layer.biases.shape, np.float32)
 
         total_errors = 0
 
@@ -509,6 +519,10 @@ class Model:
             for layer in self.layers:
                 context[layer] = {}
                 output = layer.forwards(output, context[layer])
+
+            # Make sure that all of the calculations produced single-precision
+            # results.
+            assert output.dtype == np.float32
 
             predicted = np.argmax(output)
             if predicted != label:
