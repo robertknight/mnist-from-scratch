@@ -1,76 +1,17 @@
-"""
-Incomplete tests for a few parts of the neural net.
-
-These were added for debugging purposes and are clearly not comprehensive.
-"""
-import os
-
 import numpy as np
-from numpy.testing import assert_array_equal, assert_almost_equal
+from numpy.testing import assert_almost_equal
+
 import pytest
 
-from mnist_nn import (
-    CategoricalCrossentropy,
+from neuralnet.layers import (
+    conv2d,
+    Conv2DLayer,
     FlattenLayer,
     Layer,
-    Linear,
     MaxPoolingLayer,
-    Model,
-    Conv2DLayer,
-    Relu,
     Padding,
-    Softmax,
-    conv2d,
-    onehot,
 )
-
-
-class TestOneHot:
-    def test_returns_onehot_vec(self):
-        assert_array_equal(onehot(2, 5), [0.0, 0.0, 1.0, 0.0, 0.0])
-
-        length = 10
-        for i in range(0, length):
-            vec = onehot(i, length)
-            for k in range(0, length):
-                assert vec[k] == (1.0 if i == k else 0.0)
-
-
-class TestCategoricalCrossentropy:
-    @pytest.mark.parametrize(
-        "x, y, expected_cc", [([0.1, 0.1, 0.8], [0.8, 0.1, 0.1], 2.0946)]
-    )
-    def test_call(self, x, y, expected_cc):
-        cc = CategoricalCrossentropy()
-        x = np.array(x)
-        y = np.array(y)
-        crossentropy = cc(x, y)
-        assert_almost_equal(crossentropy, expected_cc, 3)
-
-
-class TestSoftmax:
-    def test_call(self):
-        softmax = Softmax()
-        y = softmax(np.array([1, 3, 5]))
-        assert_almost_equal(y, [0.0158762, 0.1173104, 0.8668133])
-
-    def test_gradient(self):
-        softmax = Softmax()
-        loss_op = CategoricalCrossentropy()
-        x = np.array([1.0, 3.0, 5.0])
-        target = np.array([1.0, 0.01, 0.01])
-
-        losses = []
-        for _ in range(5):
-            y = softmax(x)
-            losses.append(loss_op(target, y))
-            loss_grad = loss_op.gradient(target, y)
-            g = softmax.gradient(x, loss_grad)
-            x -= 0.1 * g
-
-        assert_almost_equal(
-            losses, [4.1657903, 3.9919632, 3.8205074, 3.6516005, 3.485433]
-        )
+from neuralnet.ops import Linear, Relu
 
 
 class TestLayer:
@@ -309,7 +250,7 @@ class TestMaxPoolingLayer:
         assert pooled.shape == (3, 2, 2)
 
         for channel in range(input_.shape[0]):
-            assert_almost_equal(pooled[channel], [[1., 2], [3, 4]])
+            assert_almost_equal(pooled[channel], [[1.0, 2], [3, 4]])
 
     def test_backwards_routes_gradient(self):
         input_ = np.array([[1, 0, 0, 2], [0, 0, 0, 0], [0, 0, 0, 0], [3, 0, 0, 4]])
@@ -342,64 +283,3 @@ class TestMaxPoolingLayer:
 
         assert output.shape == loss_grad.shape
         assert grad.shape == input_.shape
-
-
-class TestModel:
-    CLASS_COUNT = 3
-
-    def test_fit_trains_model(self, simple_model, generate_batch):
-        train_data, train_labels = generate_batch(2000)
-        test_data, test_labels = generate_batch(100)
-
-        simple_model.fit(
-            train_data,
-            train_labels,
-            batch_size=10,
-            epochs=3,
-            learning_rate=0.1,
-            loss_op=CategoricalCrossentropy(),
-        )
-
-        accuracy = simple_model.evaluate(test_data, test_labels)
-
-        assert accuracy > 0.90
-
-    @pytest.fixture
-    def simple_model(self, generate_data):
-        x = generate_data(0)
-        layers = [
-            Layer(5, activation=Relu()),
-            Layer(self.CLASS_COUNT, activation=Softmax()),
-        ]
-        return Model(layers, input_size=x.shape)
-
-    @pytest.fixture
-    def generate_batch(self, generate_data):
-        def gen(count):
-            data = []
-            labels = []
-            for _ in range(count):
-                label = np.random.randint(0, self.CLASS_COUNT)
-                example = generate_data(label)
-                data.append(example)
-                labels.append(label)
-            return data, labels
-
-        return gen
-
-    @pytest.fixture
-    def generate_data(self):
-        def gen(mean):
-            # Generate an easily classified data sample.
-            return np.random.normal(mean, 0.1, (5,)).astype(np.float32)
-
-        return gen
-
-
-@pytest.fixture(autouse=True)
-def seed_rng():
-    """Seed numpy's PRNG to make reproducing test failures easier."""
-    seed = os.getenv("RANDOM_SEED") or np.random.randint(1e6)
-    seed = int(seed)
-    print(f"numpy random seed {seed}. Set RANDOM_SEED env var to reproduce.")
-    np.random.seed(42)

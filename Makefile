@@ -1,5 +1,5 @@
 test:
-	pytest .
+	PYTHONPATH=. pytest .
 
 format:
 	black *.py
