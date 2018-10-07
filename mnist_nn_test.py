@@ -3,6 +3,7 @@ Incomplete tests for a few parts of the neural net.
 
 These were added for debugging purposes and are clearly not comprehensive.
 """
+import os
 
 import numpy as np
 from numpy.testing import assert_array_equal, assert_almost_equal
@@ -393,3 +394,12 @@ class TestModel:
             return np.random.normal(mean, 0.1, (5,)).astype(np.float32)
 
         return gen
+
+
+@pytest.fixture(autouse=True)
+def seed_rng():
+    """Seed numpy's PRNG to make reproducing test failures easier."""
+    seed = os.getenv("RANDOM_SEED") or np.random.randint(1e6)
+    seed = int(seed)
+    print(f"numpy random seed {seed}. Set RANDOM_SEED env var to reproduce.")
+    np.random.seed(42)
