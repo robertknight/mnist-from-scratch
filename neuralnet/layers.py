@@ -204,9 +204,6 @@ class Conv2DLayer:
         # Compute gradients of activation input wrt. loss.
         activation_grads = self.activation.gradient(last_conv2d_outputs, loss_grad)
 
-        # Compute gradient of weights wrt. loss.
-        weight_grad = np.zeros(self.weights.shape, float_type)
-
         # Compute weight gradient for each element of filter.
         # The filter is typically much smaller than the input so we get
         # more efficient vectorization than looping over windows in the input.
