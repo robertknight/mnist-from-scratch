@@ -11,8 +11,10 @@ MNIST dataset.
 The training/test datasets are the [classic MNIST dataset](http://yann.lecun.com/exdb/mnist/) and
 the more recent, and harder, [fashion MNIST](https://github.com/zalandoresearch/fashion-mnist).
 
-There is also a reference implementation using [Keras](https://keras.io) as a sanity check
-and an implementation using [PyTorch](https://pytorch.org)'s low-level APIs.
+There are also implementations using [Keras](https://keras.io),
+[PyTorch](https://pytorch.org)'s low-level APIs and
+[TensorFlow](https://www.tensorflow.org/guide/low_level_intro) low-level APIs
+for comparison.
 
 ## Usage
 
