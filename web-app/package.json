@@ -1,0 +1,25 @@
+{
+  "name": "mnist-web-app",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Robert Knight",
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/core": "^7.1.2",
+    "@babel/preset-react": "^7.0.0",
+    "parcel-bundler": "^1.10.3",
+    "preact": "^8.3.1"
+  },
+  "browserslist": [
+    "last 1 Chrome version"
+  ],
+  "scripts": {
+    "dev": "parcel serve index.html --open",
+    "build": "parcel build index.html"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs": "^0.13.3",
+    "@tensorflow/tfjs-converter": "^0.6.5",
+    "@tensorflow/tfjs-core": "~0.13.8"
+  }
+}
